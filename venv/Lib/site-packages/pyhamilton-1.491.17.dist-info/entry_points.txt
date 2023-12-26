@@ -1,0 +1,3 @@
+[console_scripts]
+pyhamilton-configure = pyhamilton.__init__:autoconfig
+pyhamilton-new-project = pyhamilton.__init__:create_project
