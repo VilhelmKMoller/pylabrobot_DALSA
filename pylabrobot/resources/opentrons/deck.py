@@ -78,11 +78,14 @@ class OTDeck(Deck):
     :meth:`assign_child_at_slot` instead.
     """
 
+    print('slot_locations', self.slot_locations)
     if location not in self.slot_locations:
       super().assign_child_resource(resource, location=location)
+      print('location: ', location)
     else:
       slot = self.slot_locations.index(location) + 1
       self.assign_child_at_slot(resource, slot)
+      print('slot: ', slot)
 
   def assign_child_at_slot(self, resource: Resource, slot: int):
     # pylint: disable=arguments-renamed
