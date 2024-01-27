@@ -9,7 +9,7 @@ import webbrowser
 
 from pylabrobot.liquid_handling.backends.websocket import WebSocketBackend
 from pylabrobot.liquid_handling.standard import Move
-from pylabrobot.resources import Plate, TipRack, Liquid
+from pylabrobot.resources import Container, Plate, TipRack, Liquid
 
 
 logger = logging.getLogger("pylabrobot")
@@ -24,32 +24,12 @@ class SimulatorBackend(WebSocketBackend):
 
   The websocket server will run at `http://localhost:2121 <http://localhost:2121>`_ by default. If a
   new browser page connects, it will replace the existing connection. All previously sent actions
-  will be sent to the new page, with no simualated delay, to ensure that the state of the simulation
+  will be sent to the new page, with no simulated delay, to ensure that the state of the simulation
   remains the same. This also happens when a browser reloads the page or on the first page load.
-
-  Note that the simulator backend uses
-  :class:`~pylabrobot.resources.Resource` 's to locate resources, where eg.
-  :class:`~pylabrobot.liquid_handling.backends.hamilton.STAR` uses absolute coordinates.
 
   .. note::
 
     See :doc:`/using-the-simulator` for a more complete tutorial.
-
-  Examples:
-    Running a simple simulation:
-
-    >>> import pyhamilton.liquid_handling.backends.simulation.simulation as simulation
-    >>> from pylabrobot.liquid_handling.liquid_handler import LiquidHandler
-    >>> sb = simulation.SimulatorBackend()
-    >>> lh = LiquidHandler(backend=sb)
-    >>> await lh.setup()
-    INFO:websockets.server:server listening on 127.0.0.1:2121
-    INFO:pyhamilton.liquid_handling.backends.simulation.simulation:Simulation server started at
-      http://127.0.0.1:2121
-    INFO:pyhamilton.liquid_handling.backends.simulation.simulation:File server started at
-      http://127.0.0.1:1337
-    >>> lh.edit_tips(tips, pattern=[[True]*12]*8)
-    >>> lh.pick_up_tips(tips["A1:H1"])
   """
 
   def __init__(
@@ -126,6 +106,8 @@ class SimulatorBackend(WebSocketBackend):
                          "repository.")
 
     def start_server():
+      ws_host, ws_port, fs_host, fs_port = self.ws_host, self.ws_port, self.fs_host, self.fs_port
+
       # try to start the server. If the port is in use, try with another port until it succeeds.
       class QuietSimpleHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         """ A simple HTTP request handler that does not log requests. """
@@ -135,6 +117,25 @@ class SimulatorBackend(WebSocketBackend):
         def log_message(self, format, *args):
           # pylint: disable=redefined-builtin
           pass
+
+        def do_GET(self) -> None:
+          # rewrite some info in the index.html file on the fly,
+          # like a simple template engine
+          if self.path == "/":
+            with open(os.path.join(path, "index.html"), "r", encoding="utf-8") as f:
+              content = f.read()
+
+            content = content.replace("{{ ws_host }}", ws_host)
+            content = content.replace("{{ ws_port }}", str(ws_port))
+            content = content.replace("{{ fs_host }}", fs_host)
+            content = content.replace("{{ fs_port }}", str(fs_port))
+
+            self.send_response(200)
+            self.send_header("Content-type", "text/html")
+            self.end_headers()
+            self.wfile.write(content.encode("utf-8"))
+          else:
+            return super().do_GET()
 
       while True:
         try:
@@ -203,6 +204,30 @@ class SimulatorBackend(WebSocketBackend):
       })
 
     await self.send_command(command="adjust_well_liquids", data={"pattern": serialized_pattern})
+
+  async def adjust_container_liquids(
+    self,
+    container: Container,
+    liquids: List[Tuple[Liquid, float]]
+  ):
+    """ Fill a container with the specified liquids (**simulator only**).
+
+    Simulator method to fill a resource with liquid, for testing of liquid handling.
+
+    Args:
+      container: The container to fill.
+      liquids: The liquids to fill the container with. Liquids are specified as a list of tuples of
+        (liquid, volume).
+    """
+
+    serialized_liquids = [
+      {"liquid": liquid.name if liquid is not None else None, "volume": volume}
+      for liquid, volume in liquids]
+
+    await self.send_command(command="adjust_container_liquids", data={
+      "liquids": serialized_liquids,
+      "resource_name": container.name
+    })
 
   async def edit_tips(self, tip_rack: TipRack, pattern: List[List[bool]]):
     """ Place and/or remove tips on the robot (**simulator only**).
