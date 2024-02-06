@@ -1,0 +1,30 @@
+Metadata-Version: 2.0
+Name: opentrons-shared-data
+Version: 7.1.0
+Summary: A bundle of data and python binding that supports the Opentrons API. Does not need to be installed manually; only a dependency of the opentrons package
+Author: Opentrons
+Author-email: engineering@opentrons.com
+Maintainer: Opentrons
+Maintainer-email: engineering@opentrons.com
+License: Apache 2.0
+Project-URL: opentrons.com, https://www.opentrons.com
+Project-URL: Source Code On Github, https://github.com/Opentrons/opentrons/tree/edge/shared-data
+Project-URL: Documentation, https://docs.opentrons.com
+Keywords: robots,protocols,synbio,pcr,automation,lab
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Console
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Science/Research
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.7
+License-File: ../../LICENSE
+Requires-Dist: jsonschema (==3.0.2)
+Requires-Dist: typing-extensions (<5,>=4.0.0)
+Requires-Dist: pydantic (==1.8.2)
+
