@@ -29,9 +29,9 @@ pip install -e '.[dev]'
 
 See [CONTRIBUTING.md](https://github.com/PyLabRobot/pylabrobot/blob/main/CONTRIBUTING.md) for specific instructions on testing, documentation and development.
 
-### Using pip (outdated and NOT recommended)
+### Using pip (often outdated NOT recommended)
 
-> The PyPI package is currently out of date. Please install from source (see above).
+> The PyPI package is often out of date. Please install from source (see above).
 
 The following will install PyLabRobot and the essential dependencies:
 
@@ -43,8 +43,8 @@ If you want to build documentation or run tests, you need install the additional
 dependencies. Also using pip:
 
 ```bash
-pip install pylabrobot[docs]
-pip install pylabrobot[testing]
+pip install 'pylabrobot[docs]'
+pip install 'pylabrobot[testing]'
 ```
 
 There's a multitude of other optional dependencies that you can install. Replace `[docs]` with one of the following items to install the desired dependencies.
@@ -53,24 +53,23 @@ There's a multitude of other optional dependencies that you can install. Replace
 - `http`: Needed for the HTTP backend.
 - `websockets`: Needed for the WebSocket backend.
 - `simulation`: Needed for the simulation backend.
-- `venus`: Needed for the VENUS backend. This is
-  [PyHamilton](https://github.com/dgretton/pyhamilton).
 - `opentrons`: Needed for the Opentrons backend.
 - `server`: Needed for LH server, an HTTP front end to LH.
 - `plate_reading`: Needed to interact with the CLARIO Star plate reader.
+- `inheco`: Needed for the Inheco backend.
 - `dev`: Everything you need for development.
 - `all`: Everything. May not be available on all platforms.
 
 To install multiple dependencies, separate them with a comma:
 
 ```bash
-pip install pylabrobot[fw,server]
+pip install 'pylabrobot[fw,server]'
 ```
 
 Or install all dependencies at once:
 
 ```bash
-pip install pylabrobot[all]
+pip install 'pylabrobot[all]'
 ```
 
 (using-the-firmware-interface)=

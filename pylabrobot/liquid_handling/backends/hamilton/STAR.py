@@ -9,7 +9,7 @@ import enum
 import functools
 import logging
 import re
-from typing import Callable, Dict, ItemsView, List, Literal, Optional, Sequence, Type, TypeVar, cast
+from typing import Callable, Dict, ItemsView, List, Literal, Optional, Sequence, Type, TypeVar, cast, Union
 
 from pylabrobot.liquid_handling.backends.hamilton.base import (
   HamiltonLiquidHandler,
@@ -1036,6 +1036,23 @@ def star_firmware_string_to_error(
   return STARFirmwareError(errors=errors, raw_response=raw_response)
 
 
+def _dispensing_mode_for_op(empty: bool, jet: bool, blow_out: bool) -> int:
+  """ from docs:
+  0 = Partial volume in jet mode
+  1 = Blow out in jet mode, called "empty" in the VENUS liquid editor
+  2 = Partial volume at surface
+  3 = Blow out at surface, called "empty" in the VENUS liquid editor
+  4 = Empty tip at fix position
+  """
+
+  if empty:
+    return 4
+  if jet:
+    return 1 if blow_out else 0
+  else:
+    return 3 if blow_out else 2
+
+
 class STAR(HamiltonLiquidHandler):
   """
   Interface for the Hamilton STAR.
@@ -1163,33 +1180,9 @@ class STAR(HamiltonLiquidHandler):
 
       raise he
 
-  async def send_command(
-    self,
-    module: str,
-    command: str,
-    tip_pattern: Optional[List[bool]] = None,
-    write_timeout: Optional[int] = None,
-    read_timeout: Optional[int] = None,
-    wait = True,
-    fmt: str = "",
-    **kwargs
-  ):
-    """ Send a command to the machine. Parse the response if `fmt != ""`, else return the raw
-    response. """
-
-    resp = await super().send_command(
-      module=module,
-      command=command,
-      tip_pattern=tip_pattern,
-      write_timeout=write_timeout,
-      read_timeout=read_timeout,
-      wait=wait,
-      **kwargs
-    )
-    if fmt != "":
-      parsed = parse_star_fw_string(resp, fmt)
-      return parsed
-    return resp
+  def _parse_response(self, resp: str, fmt: str) -> dict:
+    """ Parse a response from the machine. """
+    return parse_star_fw_string(resp, fmt)
 
   async def send_raw_command(
     self,
@@ -1197,7 +1190,7 @@ class STAR(HamiltonLiquidHandler):
     write_timeout: Optional[int] = None,
     read_timeout: Optional[int] = None,
     wait: bool = True
-  ) -> Optional[dict]:
+  ) -> Optional[str]:
     """ Send a raw command to the machine. """
     id_index = command.find("id")
     if id_index == -1:
@@ -1234,7 +1227,8 @@ class STAR(HamiltonLiquidHandler):
     left_x_drive_configuration_byte_1 = left_x_drive_configuration_byte_1 + \
       "0" * (16 - len(left_x_drive_configuration_byte_1))
     left_x_drive_configuration_byte_1 = left_x_drive_configuration_byte_1[2:]
-    autoload_configuration_byte = bin(conf["kb"]).split("b")[-1][-3]
+    configuration_data1 = bin(conf["kb"]).split("b")[-1].zfill(8)
+    autoload_configuration_byte = configuration_data1[-3]
     # Identify installations
     self.autoload_installed = autoload_configuration_byte == "1"
     self.core96_head_installed = left_x_drive_configuration_byte_1[2] == "1"
@@ -1425,6 +1419,8 @@ class STAR(HamiltonLiquidHandler):
     self,
     ops: List[Aspiration],
     use_channels: List[int],
+    jet: Optional[List[bool]] = None,
+    blow_out: Optional[List[bool]] = None,
 
     lld_search_height: Optional[List[int]] = None,
     clot_detection_height: Optional[List[int]] = None,
@@ -1479,7 +1475,10 @@ class STAR(HamiltonLiquidHandler):
     Args:
       ops: The aspiration operations to perform.
       use_channels: The channels to use for the operations.
-      blow_out_air_volumes: The amount of air to be blown out over all matching dispense operations.
+      jet: whether to search for a jet liquid class. Only used on dispense. Default is False.
+      blow_out: whether to blow out air. Only used on dispense. Note that in the VENUS Liquid
+        Editor, this is called "empty". Default is False.
+
       lld_search_height: The height to start searching for the liquid level when using LLD.
       clot_detection_height: Unknown, but probably the height to search for clots when doing LLD.
       pull_out_distance_transport_air: The distance to pull out when aspirating air, if LLD is
@@ -1488,9 +1487,10 @@ class STAR(HamiltonLiquidHandler):
       second_section_ratio: Unknown.
       minimum_height: The minimum height to move to, this is the end of aspiration. The channel
        will move linearly from the liquid surface to this height over the course of the aspiration.
-      immersion_depth: Unknown exactly, probably the depth to move into the liquid. Possibly below
-        the liquid surface.
-      immersion_depth_direction: Unknown.
+      immersion_depth: The z distance to move after detecting the liquid, can be into or away from
+        the liquid surface (dependent on immersion_depth_direction).
+      immersion_depth_direction: set to 0, tip will move below the detected liquid surface; set to
+        1, tip will move away from the detected surface.
       surface_following_distance: The distance to follow the liquid surface.
       transport_air_volume: The volume of air to aspirate after the liquid.
       pre_wetting_volume: The volume of liquid to use for pre-wetting.
@@ -1535,6 +1535,11 @@ class STAR(HamiltonLiquidHandler):
 
     n = len(ops)
 
+    if jet is None:
+      jet = [False] * n
+    if blow_out is None:
+      blow_out = [False] * n
+
     if hamilton_liquid_classes is None:
       hamilton_liquid_classes = [
         get_star_liquid_class(
@@ -1543,9 +1548,9 @@ class STAR(HamiltonLiquidHandler):
           is_tip=True,
           has_filter=op.tip.has_filter,
           liquid=op.liquids[-1][0] or Liquid.WATER, # get last liquid in well, first to be aspirated
-          jet=False, # for aspiration
-          empty=False # for aspiration
-        ) for op in ops]
+          jet=jet[i],
+          blow_out=blow_out[i]
+        ) for i, op in enumerate(ops)]
 
     self._assert_valid_resources([op.resource for op in ops])
 
@@ -1582,6 +1587,10 @@ class STAR(HamiltonLiquidHandler):
     transport_air_volume = _fill_in_defaults(transport_air_volume,
       default=[int(hlc.aspiration_air_transport_volume*10) if hlc is not None else 0
                for hlc in hamilton_liquid_classes])
+    blow_out_air_volumes = [int((op.blow_out_air_volume or
+                                (hlc.aspiration_blow_out_volume
+                                  if hlc is not None else 0)*10))
+                            for op, hlc in zip(ops, hamilton_liquid_classes)]
     pre_wetting_volume = _fill_in_defaults(pre_wetting_volume, [0]*n)
     lld_mode = _fill_in_defaults(lld_mode, [self.__class__.LLDMode.OFF]*n)
     gamma_lld_sensitivity = _fill_in_defaults(gamma_lld_sensitivity, [1]*n)
@@ -1640,7 +1649,7 @@ class STAR(HamiltonLiquidHandler):
         surface_following_distance=surface_following_distance,
         aspiration_speed=aspiration_speed,
         transport_air_volume=transport_air_volume,
-        blow_out_air_volume=[int(op.blow_out_air_volume*10) for op in ops],
+        blow_out_air_volume=blow_out_air_volumes,
         pre_wetting_volume=pre_wetting_volume,
         lld_mode=[mode.value for mode in lld_mode],
         gamma_lld_sensitivity=gamma_lld_sensitivity,
@@ -1707,7 +1716,6 @@ class STAR(HamiltonLiquidHandler):
     cut_off_speed: Optional[List[int]] = None,
     stop_back_volume: Optional[List[int]] = None,
     transport_air_volume: Optional[List[int]] = None,
-    blow_out_air_volume: Optional[List[int]] = None,
     lld_mode: Optional[List[int]] = None,
     dispense_position_above_z_touch_off: Optional[List[int]] = None,
     gamma_lld_sensitivity: Optional[List[int]] = None,
@@ -1725,7 +1733,10 @@ class STAR(HamiltonLiquidHandler):
     min_z_endpos: int = 2450,
     side_touch_off_distance: int = 0,
 
-    hamilton_liquid_classes: Optional[List[Optional[HamiltonLiquidClass]]] = None
+    hamilton_liquid_classes: Optional[List[Optional[HamiltonLiquidClass]]] = None,
+    jet: Optional[List[bool]] = None,
+    blow_out: Optional[List[bool]] = None, # "empty" in the VENUS liquid editor
+    empty: Optional[List[bool]] = None, # truly "empty", does not exist in liquid editor, dm4
   ):
     """ Dispense liquid from the specified channels.
 
@@ -1741,8 +1752,6 @@ class STAR(HamiltonLiquidHandler):
     Args:
       ops: The dispense operations to perform.
       use_channels: The channels to use for the dispense operations.
-      blow_out_air_volumes: The amount of air to blow out after dispensing. If a single value is
-        given, it will be used for all operations.
       dispensing_mode: The dispensing mode to use for each operation.
       pull_out_distance_transport_air: The distance to pull out the tip for aspirating transport air
         if LLD is disabled.
@@ -1756,7 +1765,6 @@ class STAR(HamiltonLiquidHandler):
       cut_off_speed: Unknown.
       stop_back_volume: Unknown.
       transport_air_volume: The volume of air to dispense before dispensing the liquid.
-      blow_out_air_volume: The volume of air to blow out after dispensing.
       lld_mode: The liquid level detection mode to use.
       dispense_position_above_z_touch_off: The height to move after LLD mode found the Z touch off
         position.
@@ -1778,6 +1786,15 @@ class STAR(HamiltonLiquidHandler):
 
       hamilton_liquid_classes: Override the default liquid classes. See
         pylabrobot/liquid_handling/liquid_classes/hamilton/star.py
+
+      jet: Whether to use jetting for each dispense. Defaults to `False` for all. Used for
+        determining the dispense mode. True for dispense mode 0 or 1.
+      blow_out: Whether to use "blow out" dispense mode for each dispense. Defaults to `False` for
+        all. This is labelled as "empty" in the VENUS liquid editor, but "blow out" in the firmware
+        documentation. True for dispense mode 1 or 3.
+      empty: Whether to use "empty" dispense mode for each dispense. Defaults to `False` for all.
+        Truly empty the tip, not available in the VENUS liquid editor, but is in the firmware
+        documentation. Dispense mode 4.
     """
 
     x_positions, y_positions, channels_involved = \
@@ -1785,14 +1802,12 @@ class STAR(HamiltonLiquidHandler):
 
     n = len(ops)
 
-    def should_jet(op):
-      if op.liquid_height is None:
-        return True
-      if op.liquid_height is not None and op.liquid_height > 0:
-        return True
-      if hasattr(op.resource, "tracker") and op.resource.tracker.get_used_volume() == 0:
-        return True
-      return False
+    if jet is None:
+      jet = [False] * n
+    if empty is None:
+      empty = [False] * n
+    if blow_out is None:
+      blow_out = [False] * n
 
     if hamilton_liquid_classes is None:
       hamilton_liquid_classes = [
@@ -1802,10 +1817,9 @@ class STAR(HamiltonLiquidHandler):
           is_tip=True,
           has_filter=op.tip.has_filter,
           liquid=op.liquids[-1][0] or Liquid.WATER, # get last liquid in pipette, first to be disp.
-          jet=should_jet(op),
-          # dispensing all, get_used_volume includes pending
-          empty=op.tip.tracker.get_used_volume() == 0
-        ) for op in ops]
+          jet=jet[i],
+          blow_out=blow_out[i], # see comment in method docstring
+        ) for i, op in enumerate(ops)]
 
     # correct volumes using the liquid class
     for op, hlc in zip(ops, hamilton_liquid_classes):
@@ -1818,14 +1832,9 @@ class STAR(HamiltonLiquidHandler):
                             (2.7 if isinstance(op.resource, Well) else 5) #?
                           for wb, op in zip(well_bottoms, ops)]
 
-    def dispensing_mode_for_op(op: Dispense) -> int:
-      return {
-        (False, True): 0,
-        (True, True): 1,
-        (True, False): 2,
-        (False, False): 3,
-      }[(op.tip.tracker.get_used_volume() == 0, should_jet(op))]
-    dispensing_modes = dispensing_mode or [dispensing_mode_for_op(op) for op in ops]
+    dispensing_modes = dispensing_mode or \
+      [_dispensing_mode_for_op(empty=empty[i], jet=jet[i], blow_out=blow_out[i])
+       for i in range(len(ops))]
 
     dispense_volumes = [int(op.volume*10) for op in ops]
     pull_out_distance_transport_air = _fill_in_defaults(pull_out_distance_transport_air, [100]*n)
@@ -1847,9 +1856,10 @@ class STAR(HamiltonLiquidHandler):
     transport_air_volume = _fill_in_defaults(transport_air_volume,
       default=[int(hlc.dispense_air_transport_volume*10) if hlc is not None else 0
       for hlc in hamilton_liquid_classes])
-    blow_out_air_volume = _fill_in_defaults(blow_out_air_volume,
-      default=[int(hlc.dispense_blow_out_volume*10) if hlc is not None else 0
-       for hlc in hamilton_liquid_classes])
+    blow_out_air_volumes = [int((op.blow_out_air_volume or
+                                (hlc.aspiration_blow_out_volume
+                                  if hlc is not None else 0)*10))
+                            for op, hlc in zip(ops, hamilton_liquid_classes)]
     lld_mode = _fill_in_defaults(lld_mode, [0]*n)
     dispense_position_above_z_touch_off = _fill_in_defaults(dispense_position_above_z_touch_off,
       default=[0]*n)
@@ -1891,7 +1901,7 @@ class STAR(HamiltonLiquidHandler):
         cut_off_speed=cut_off_speed,
         stop_back_volume=stop_back_volume,
         transport_air_volume=transport_air_volume,
-        blow_out_air_volume=[int(op.blow_out_air_volume*10) for op in ops],
+        blow_out_air_volume=blow_out_air_volumes,
         lld_mode=lld_mode,
         dispense_position_above_z_touch_off=dispense_position_above_z_touch_off,
         gamma_lld_sensitivity=gamma_lld_sensitivity,
@@ -1984,10 +1994,13 @@ class STAR(HamiltonLiquidHandler):
   async def aspirate96(
     self,
     aspiration: AspirationPlate,
-    blow_out_air_volume: float = 0,
+    jet: bool = False,
+    blow_out: bool = False,
+
     use_lld: bool = False,
     liquid_height: float = 2,
     air_transport_retract_dist: float = 10,
+    hlc: Optional[HamiltonLiquidClass] = None,
 
     aspiration_type: int = 0,
     minimum_traverse_height_at_beginning_of_a_command: int = 2450,
@@ -2020,7 +2033,14 @@ class STAR(HamiltonLiquidHandler):
 
     Args:
       aspiration: The aspiration to perform.
-      blow_out_air_volume: The volume of air to blow out after aspiration, in microliters.
+
+      jet: Whether to search for a jet liquid class. Only used on dispense.
+      blow_out: Whether to use "blow out" dispense mode. Only used on dispense. Note that this is
+        labelled as "empty" in the VENUS liquid editor, but "blow out" in the firmware
+        documentation.
+      hlc: The Hamiltonian liquid class to use. If `None`, the liquid class will be determined
+        automatically.
+
       use_lld: If True, use gamma liquid level detection. If False, use liquid height.
       liquid_height: The height of the liquid above the bottom of the well, in millimeters.
       air_transport_retract_dist: The distance to retract after aspirating, in millimeters.
@@ -2054,16 +2074,43 @@ class STAR(HamiltonLiquidHandler):
     """
 
     assert self.core96_head_installed, "96 head must be installed"
-
     assert isinstance(aspiration.resource, Plate), "Only ItemizedResource is supported."
+
+    # get the first well and tip as representatives
     well_a1 = aspiration.resource.get_item("A1")
     position = well_a1.get_absolute_location() + well_a1.center()
+    tip = aspiration.tips[0]
 
     liquid_height = aspiration.resource.get_absolute_location().z + liquid_height
 
-    flow_rate = int((aspiration.flow_rate or 250)*10)
+    hlc = hlc or get_star_liquid_class(
+      tip_volume=tip.maximal_volume,
+      is_core=True,
+      is_tip=True,
+      has_filter=tip.has_filter,
+      # get last liquid in pipette, first to be dispensed
+      liquid=aspiration.liquids[-1][0][0] or Liquid.WATER,
+      jet=jet,
+      blow_out=blow_out, # see comment in method docstring
+    )
 
-    aspiration_volumes = int(aspiration.volume * 10)
+    if hlc is not None:
+      volume = hlc.compute_corrected_volume(aspiration.volume)
+    else:
+      volume = aspiration.volume
+    aspiration_volumes = int(volume * 10)
+
+    transport_air_volume = transport_air_volume or \
+      (int(hlc.aspiration_air_transport_volume*10) if hlc is not None else 0)
+    blow_out_air_volume = int((aspiration.blow_out_air_volume or \
+      (hlc.aspiration_blow_out_volume if hlc is not None else 0))*10)
+    flow_rate = int(aspiration.flow_rate or \
+      (hlc.aspiration_flow_rate if hlc is not None else 250)) * 10
+    swap_speed = swap_speed or (int(hlc.aspiration_swap_speed*10) if hlc is not None else 100)
+    settling_time = settling_time or \
+      (int(hlc.aspiration_settling_time*10) if hlc is not None else 5)
+    speed_of_homogenization = speed_of_homogenization or \
+      (int(hlc.aspiration_mix_flow_rate*10) if hlc is not None else 100)
 
     channel_pattern = [True]*12*8
 
@@ -2071,16 +2118,18 @@ class STAR(HamiltonLiquidHandler):
     pull_out_distance_to_take_transport_air_in_function_without_lld = \
       int(air_transport_retract_dist * 10)
 
-    # Unfortunately, `blow_out_air_volume` does not work correctly, so instead we aspirate air
-    # manually.
-    if blow_out_air_volume is not None and blow_out_air_volume > 0:
-      await self.aspirate_core_96(
-        x_position=int(position.x * 10),
-        y_positions=int(position.y * 10),
-        lld_mode=0,
-        liquid_surface_at_function_without_lld=int((liquid_height + 30) * 10),
-        aspiration_volumes=int(blow_out_air_volume * 10)
-      )
+    # Was this ever true? Just copied it over from pyhamilton. Could have something to do with
+    # the liquid classes and whether blow_out mode is enabled.
+    # # Unfortunately, `blow_out_air_volume` does not work correctly, so instead we aspirate air
+    # # manually.
+    # if blow_out_air_volume is not None and blow_out_air_volume > 0:
+    #   await self.aspirate_core_96(
+    #     x_position=int(position.x * 10),
+    #     y_positions=int(position.y * 10),
+    #     lld_mode=0,
+    #     liquid_surface_at_function_without_lld=int((liquid_height + 30) * 10),
+    #     aspiration_volumes=int(blow_out_air_volume * 10)
+    #   )
 
     return await self.aspirate_core_96(
       x_position=int(position.x * 10),
@@ -2105,7 +2154,7 @@ class STAR(HamiltonLiquidHandler):
       aspiration_volumes=aspiration_volumes,
       aspiration_speed=flow_rate,
       transport_air_volume=transport_air_volume,
-      blow_out_air_volume=0,
+      blow_out_air_volume=blow_out_air_volume,
       pre_wetting_volume=pre_wetting_volume,
       lld_mode=int(use_lld),
       gamma_lld_sensitivity=gamma_lld_sensitivity,
@@ -2129,11 +2178,13 @@ class STAR(HamiltonLiquidHandler):
     self,
     dispense: DispensePlate,
     jet: bool = False,
-    blow_out: bool = True, # TODO: do we need this if we can just check if blow_out_air_volume > 0?
+    empty: bool = False,
+    blow_out: bool = False,
+    hlc: Optional[HamiltonLiquidClass] = None,
+
     liquid_height: float = 2,
-    dispense_mode=3,
+    dispense_mode: Optional[int] = None,
     air_transport_retract_dist=10,
-    blow_out_air_volume: Optional[float] = None,
     use_lld: bool = False,
 
     minimum_traverse_height_at_beginning_of_a_command: int = 2450,
@@ -2171,9 +2222,9 @@ class STAR(HamiltonLiquidHandler):
       blow_out: Whether to blow out after dispensing.
       liquid_height: The height of the liquid in the well, in mm. Used if LLD is not used.
       dispense_mode: The dispense mode to use. 0 = Partial volume in jet mode 1 = Blow out in jet
-        mode 2 = Partial volume at surface 3 = Blow out at surface 4 = Empty tip at fix position
+        mode 2 = Partial volume at surface 3 = Blow out at surface 4 = Empty tip at fix position.
+        If `None`, the mode will be determined based on the `jet`, `empty`, and `blow_out`
       air_transport_retract_dist: The distance to retract after dispensing, in mm.
-      blow_out_air_volume: The volume of air to blow out after dispensing, in ul.
       use_lld: Whether to use gamma LLD.
 
       minimum_traverse_height_at_beginning_of_a_command: Minimum traverse height at beginning of a
@@ -2201,21 +2252,45 @@ class STAR(HamiltonLiquidHandler):
     """
 
     assert self.core96_head_installed, "96 head must be installed"
-
     assert isinstance(dispense.resource, Plate), "Only ItemizedResource is supported."
+
+    # get the first well and tip as representatives
     well_a1 = dispense.resource.get_item("A1")
     position = well_a1.get_absolute_location() + well_a1.center()
+    tip = dispense.tips[0]
 
     liquid_height = dispense.resource.get_absolute_location().z + liquid_height
 
-    dispense_mode = {
-      (True, False): 0,
-      (True, True): 1,
-      (False, False): 2,
-      (False, True): 3,
-    }[(jet, blow_out)]
+    dispense_mode = _dispensing_mode_for_op(empty=empty, jet=jet, blow_out=blow_out)
 
-    flow_rate = dispense.flow_rate or 120
+    hlc = hlc or get_star_liquid_class(
+      tip_volume=tip.maximal_volume,
+      is_core=True,
+      is_tip=True,
+      has_filter=tip.has_filter,
+      # get last liquid in pipette, first to be dispensed
+      liquid=dispense.liquids[-1][0][0] or Liquid.WATER,
+      jet=jet,
+      blow_out=blow_out, # see comment in method docstring
+    )
+
+    if hlc is not None:
+      volume = hlc.compute_corrected_volume(dispense.volume)
+    else:
+      volume = dispense.volume
+    dispense_volumes = int(volume * 10)
+
+    transport_air_volume = transport_air_volume or \
+      (int(hlc.dispense_air_transport_volume*10) if hlc is not None else 0)
+    blow_out_air_volume = int((dispense.blow_out_air_volume or \
+      (hlc.dispense_blow_out_volume if hlc is not None else 0))*10)
+    flow_rate = int(dispense.flow_rate or \
+      (hlc.dispense_flow_rate if hlc is not None else 120)) * 10
+    swap_speed = swap_speed or (int(hlc.dispense_swap_speed*10) if hlc is not None else 100)
+    settling_time = settling_time or \
+      (int(hlc.dispense_settling_time*10) if hlc is not None else 5)
+    speed_of_mixing = speed_of_mixing or \
+      (int(hlc.dispense_mix_flow_rate*10) if hlc is not None else 100)
 
     liquid_surface_at_function_without_lld: int = int(liquid_height*10)
     pull_out_distance_to_take_transport_air_in_function_without_lld = air_transport_retract_dist*10
@@ -2243,10 +2318,10 @@ class STAR(HamiltonLiquidHandler):
       immersion_depth_direction=immersion_depth_direction,
       liquid_surface_sink_distance_at_the_end_of_dispense=
         liquid_surface_sink_distance_at_the_end_of_dispense,
-      dispense_volume=int(dispense.volume * 10),
-      dispense_speed=int(flow_rate * 10),
+      dispense_volume=dispense_volumes,
+      dispense_speed=flow_rate,
       transport_air_volume=transport_air_volume,
-      blow_out_air_volume=0,
+      blow_out_air_volume=blow_out_air_volume,
       lld_mode=int(use_lld),
       gamma_lld_sensitivity=gamma_lld_sensitivity,
       swap_speed=swap_speed,
@@ -2264,16 +2339,18 @@ class STAR(HamiltonLiquidHandler):
       stop_back_volume=stop_back_volume,
     )
 
-    # Unfortunately, `blow_out_air_volume` does not work correctly, so instead we dispense air
-    # manually.
-    if blow_out_air_volume is not None and blow_out_air_volume > 0:
-      await self.dispense_core_96(
-        x_position=int(position.x * 10),
-        y_position=int(position.y * 10),
-        lld_mode=0,
-        liquid_surface_at_function_without_lld=int((liquid_height + 30) * 10),
-        dispense_volume=int(blow_out_air_volume * 10),
-      )
+    # Was this ever true? Just copied it over from pyhamilton. Could have something to do with
+    # the liquid classes and whether blow_out mode is enabled.
+    # # Unfortunately, `blow_out_air_volume` does not work correctly, so instead we dispense air
+    # # manually.
+    # if blow_out_air_volume is not None and blow_out_air_volume > 0:
+    #   await self.dispense_core_96(
+    #     x_position=int(position.x * 10),
+    #     y_position=int(position.y * 10),
+    #     lld_mode=0,
+    #     liquid_surface_at_function_without_lld=int((liquid_height + 30) * 10),
+    #     dispense_volume=int(blow_out_air_volume * 10),
+    #   )
 
     return ret
 
@@ -2511,10 +2588,10 @@ class STAR(HamiltonLiquidHandler):
         return_tool=return_core_gripper
       )
 
-  async def prepare_for_manual_channel_operation(self):
+  async def prepare_for_manual_channel_operation(self, channel: int):
     """ Prepare for manual operation. """
 
-    await self.position_max_free_y_for_n(pipetting_channel_index=self.num_channels)
+    await self.position_max_free_y_for_n(pipetting_channel_index=channel + 1)
 
   async def move_channel_x(self, channel: int, x: float): # pylint: disable=unused-argument
     """ Move a channel in the x direction. """
@@ -2627,7 +2704,7 @@ class STAR(HamiltonLiquidHandler):
 
     # pylint: disable=undefined-variable
 
-    resp = await self.send_command(module="C0", command="QB", fmt="")
+    resp = await self.send_command(module="C0", command="QB")
     try:
       return STAR.BoardType(resp["qb"])
     except ValueError:
@@ -4370,7 +4447,7 @@ class STAR(HamiltonLiquidHandler):
   async def spread_pip_channels(self):
     """ Spread PIP channels """
 
-    return await self.send_command(module="C0", command="JE", fmt="")
+    return await self.send_command(module="C0", command="JE")
 
   async def move_all_pipetting_channels_to_defined_position(
     self,
@@ -6336,22 +6413,22 @@ class STAR(HamiltonLiquidHandler):
   async def lock_cover(self):
     """ Lock cover """
 
-    return await self.send_command(module="C0", command="CO", fmt="")
+    return await self.send_command(module="C0", command="CO")
 
   async def unlock_cover(self):
     """ Unlock cover """
 
-    return await self.send_command(module="C0", command="HO", fmt="")
+    return await self.send_command(module="C0", command="HO")
 
   async def disable_cover_control(self):
     """ Disable cover control """
 
-    return await self.send_command(module="C0", command="CD", fmt="")
+    return await self.send_command(module="C0", command="CD")
 
   async def enable_cover_control(self):
     """ Enable cover control """
 
-    return await self.send_command(module="C0", command="CE", fmt="")
+    return await self.send_command(module="C0", command="CE")
 
   async def set_cover_output(self, output: int = 0):
     """ Set cover output
@@ -6361,7 +6438,7 @@ class STAR(HamiltonLiquidHandler):
     """
 
     assert 1 <= output <= 3, "output must be between 1 and 3"
-    return await self.send_command(module="C0", command="OS", on=output, fmt="")
+    return await self.send_command(module="C0", command="OS", on=output)
 
   async def reset_output(self, output: int = 0):
     """ Reset output
@@ -6381,3 +6458,345 @@ class STAR(HamiltonLiquidHandler):
 
     resp = await self.send_command(module="C0", command="QC", fmt="qc#")
     return bool(resp["qc"])
+
+
+  # -------------- 4.0 Direct Device Integration --------------
+  # Communication occurs directly through STAR "TCC" connections,
+  # i.e. firmware commands. This means devices can be seen as part
+  # of the STAR machine directly (if number of devices =< 2).
+
+  # -------------- 4.1 Hamilton Heater Shaker (HHS) --------------
+
+  async def check_type_is_hhs(self, device_number: int):
+    """
+    Convenience method to check that connected device is an HHS.
+    Executed through firmware query
+    """
+
+    firmware_version = await self.send_command(module=f"T{device_number}", command="RF")
+    if "Heater Shaker" not in firmware_version:
+      raise ValueError(f"Device number {device_number} does not connect to a Hamilton" \
+                        f" Heater Shaker, found {firmware_version} instead." \
+                        f"Have you called the wrong device number?")
+
+  async def initialize_hhs(self, device_number: int) -> str:
+    """ Initialize Hamilton Heater Shaker (HHS) at specified TCC port
+
+    Args:
+      device_number: TCC connect number to the HHS
+
+    Returns:
+      Information string about the initialization status
+    """
+
+    module_pointer = f"T{device_number}"
+
+    # Request module configuration
+    try:
+      await self.send_command(module=module_pointer, command="QU")
+    except TimeoutError as exc:
+      error_message = f"No Hamilton Heater Shaker found at device_number {device_number}" \
+        f", have you checked your connections? Original error: {exc}"
+      raise ValueError(error_message) from exc
+
+    await self.check_type_is_hhs(device_number)
+
+    # Request module configuration
+    hhs_init_status = await self.send_command(module=module_pointer, command="QW", fmt="qw#")
+    hhs_init_status = hhs_init_status["qw"]
+
+    # Initializing HHS if necessary
+    info = "HHS already initialized"
+    if hhs_init_status != 1:
+      await self.send_command(module=module_pointer, command="LI")
+      info = f"HHS at device number {device_number} initialized."
+
+    return info
+
+  # -------------- 4.1.1 HHS Plate Lock --------------
+
+  async def open_plate_lock(self, device_number: int):
+    """ Open HHS plate lock """
+
+    await self.check_type_is_hhs(device_number)
+
+    return await self.send_command(
+      module=f"T{device_number}",
+      command="LP",
+      lp="0" # => open plate lock
+    )
+
+  async def close_plate_lock(self, device_number: int):
+    """ Close HHS plate lock """
+
+    await self.check_type_is_hhs(device_number)
+
+    return await self.send_command(
+      module = f"T{device_number}",
+      command="LP",
+      lp="1" # => close plate lock
+    )
+
+  # -------------- 4.1.2 HHS Shaking --------------
+  async def start_shaking_at_hhs(
+    self,
+    device_number: int,
+    rpm: int,
+    rotation: int = 0,
+    plate_locked_during_shaking: bool = True
+  ):
+    """ Start shaking of specified HHS
+
+    Args:
+      rpm: round per minute
+      rotation: 0: clockwise rotation, 1: counter-clockwise rotation
+      plate_locked_during_shaking: True if plate is locked during shaking
+    """
+
+    await self.check_type_is_hhs(device_number)
+
+    # Ensure plate is locked before shaking starts
+    # allow over-writing of default (perhaps special holder system)
+    if plate_locked_during_shaking:
+      await self.close_plate_lock(device_number)
+
+    return await self.send_command(
+      module=f"T{device_number}",
+      command="SB",
+      st=str(rotation),
+      sv=str(rpm).zfill(4),
+      sr="00500" # ??? maybe shakingAccRamp rate?
+    )
+
+  async def stop_shaking_at_hhs(self, device_number: int):
+    """ Close HHS plate lock """
+
+    await self.check_type_is_hhs(device_number)
+
+    return await self.send_command(module="T1", command="SC")
+
+  # -------------- 4.1.3 HHS Heating/Temperature Control --------------
+
+  async def start_temperature_control_at_hhs(
+    self,
+    device_number: int,
+    temp: Union[float, int],
+  ):
+    """ Start temperature regulation of specified HHS """
+
+    await self.check_type_is_hhs(device_number)
+    assert 0 < temp <= 105
+
+    # Ensure proper temperature input handling
+    if isinstance(temp, (float, int)):
+      safe_temp_str = f"{int(temp * 10):04d}"
+
+    return await self.send_command(
+      module=f"T{device_number}",
+      command="TA", # temperature adjustment
+      ta=safe_temp_str,
+    )
+
+  async def get_temperature_at_hhs(self, device_number: int) -> dict:
+    """ Query current temperatures of both sensors of specified HHS
+
+    Returns:
+      Dictionary with keys "middle_T" and "edge_T" for the middle and edge temperature
+    """
+
+    await self.check_type_is_hhs(device_number)
+
+    request_temperature = await self.send_command(module=f"T{device_number}", command="RT")
+    processed_t_info = [int(x)/10 for x in request_temperature.split("+")[-2:]]
+
+    return {"middle_T": processed_t_info[0],"edge_T": processed_t_info[-1]}
+
+  async def stop_temperature_control_at_hhs(self, device_number: int):
+    """ Stop temperature regulation of specified HHS """
+
+    await self.check_type_is_hhs(device_number)
+
+    return await self.send_command(module=f"T{device_number}", command="TO")
+
+  # -------------- 4.2 Hamilton Heater Cooler (HHS) --------------
+
+  async def check_type_is_hhc(self, device_number: int):
+    """
+    Convenience method to check that connected device is an HHC.
+    Executed through firmware query
+    """
+
+    firmware_version = await self.send_command(module=f"T{device_number}", command="RF")
+    if "Hamilton Heater Cooler" not in firmware_version:
+      raise ValueError(f"Device number {device_number} does not connect to a Hamilton" \
+                        f" Heater-Cooler, found {firmware_version} instead." \
+                        f"Have you called the wrong device number?")
+
+  async def initialize_hhc(self, device_number: int) -> str:
+    """ Initialize Hamilton Heater Cooler (HHC) at specified TCC port
+
+    Args:
+      device_number: TCC connect number to the HHC
+    """
+
+    module_pointer = f"T{device_number}"
+
+    # Request module configuration
+    try:
+      await self.send_command(module=module_pointer, command="QU")
+    except TimeoutError as exc:
+      error_message = f"No Hamilton Heater Cooler found at device_number {device_number}" \
+        f", have you checked your connections? Original error: {exc}"
+      raise ValueError(error_message) from exc
+
+    await self.check_type_is_hhc(device_number)
+
+    # Request module configuration
+    hhc_init_status = await self.send_command(module=module_pointer, command="QW", fmt="qw#")
+    hhc_init_status = hhc_init_status["qw"]
+
+    info = "HHC already initialized"
+    # Initializing HHS if necessary
+    if hhc_init_status != 1:
+      # Initialize device
+      await self.send_command(module=module_pointer, command="LI")
+      info = f"HHS at device number {device_number} initialized."
+
+    return info
+
+  async def start_temperature_control_at_hhc(
+    self,
+    device_number: int,
+    temp:  Union[float, int],
+  ):
+    """ Start temperature regulation of specified HHC """
+
+    await self.check_type_is_hhc(device_number)
+    assert 0 < temp <= 105
+
+    # Ensure proper temperature input handling
+    if isinstance(temp, (float, int)):
+      safe_temp_str = f"{int(temp * 10):04d}"
+
+    return await self.send_command(
+      module=f"T{device_number}",
+      command="TA", # temperature adjustment
+      ta=safe_temp_str,
+      tb="1800", # TODO: identify precise purpose?
+      tc="0020", # TODO: identify precise purpose?
+    )
+
+  async def get_temperature_at_hhc(self, device_number: int) -> dict:
+    """ Query current temperatures of both sensors of specified HHC """
+
+    await self.check_type_is_hhc(device_number)
+
+    request_temperature = await self.send_command(module=f"T{device_number}", command="RT")
+    processed_t_info = [int(x)/10 for x in request_temperature.split("+")[-2:]]
+
+    return {"middle_T": processed_t_info[0],"edge_T": processed_t_info[-1]}
+
+  async def query_whether_temperature_reached_at_hhc(self, device_number: int):
+    """ Stop temperature regulation of specified HHC """
+
+    await self.check_type_is_hhc(device_number)
+    query_current_control_status = await self.send_command(
+      module=f"T{device_number}", command="QD", fmt="qd#"
+    )
+
+    return query_current_control_status["qd"] == 0
+
+  async def stop_temperature_control_at_hhc(self, device_number: int):
+    """ Stop temperature regulation of specified HHC """
+
+    await self.check_type_is_hhc(device_number)
+
+    return await self.send_command(module=f"T{device_number}", command="TO")
+
+# -------------- Extra - Probing labware with STAR - making STAR into a CMM --------------
+
+  async def probe_z_height_using_channel(
+    self,
+    channel_idx: int,
+    lowest_immers_pos: int = 10000,
+    start_pos_lld_search: int = 31200,
+    channel_speed: int = 1000,
+    channel_acceleration: int = 75,
+    detection_edge: int = 10,
+    detection_drop: int = 2,
+    post_detection_trajectory: Literal[0, 1] = 1,
+    post_detection_dist: int = 100,
+    move_channels_to_save_pos_after: bool = False
+  ) -> float:
+    """ Probes the Z-height using a specified channel on a liquid handling device.
+    Commands the liquid handler to perform a Liquid Level Detection (LLD) operation using the
+    specified channel (this means only conductive materials can be probed!).
+
+    Args:
+      self: The liquid handler.
+      channel_idx: The index of the channel to use for probing.
+      lowest_immers_pos: The lowest immersion position in increments.
+      start_pos_lld_search: The start position for LLD search in increments.
+      channel_speed: The speed of channel movement.
+      channel_acceleration: The acceleration of the channel.
+      detection_edge: The edge steepness at capacitive LLD detection.
+      detection_drop: The offset after capacitive LLD edge detection.
+      post_detection_trajectory: Movement of the channel up (1) or down (0) after contacting the
+        surface.
+      post_detection_dist (int): Distance to move up after detection to avoid pressure build-up.
+      move_channels_to_save_pos_after (bool): Flag to move channels to a safe position after
+       operation.
+
+    Returns:
+      float: The detected Z-height in mm.
+    """
+
+    assert 9320 <= lowest_immers_pos <= 31200, (
+        "Lowest immersion position [increment] must be between 9320 and 31200"
+    )
+    assert 9320 <= start_pos_lld_search <= 31200, (
+        "Start position of LLD search [increment] must be between 9320 and 31200"
+    )
+    assert 20 <= channel_speed <= 15000, (
+        "LLD search speed [increment/second] must be between 20 and 15000"
+    )
+    assert 5 <= channel_acceleration <= 150, (
+        "Channel acceleration [increment] must be between 5 and 150"
+    )
+    assert 0 <= detection_edge <= 1023, (
+        "Edge steepness at capacitive LLD detection must be between 0 and 1023"
+    )
+    assert 0 <= detection_drop <= 1023, (
+        "Offset after capacitive LLD edge detection must be between 0 and 1023"
+    )
+    assert 0 <= post_detection_dist <= 9999, (
+        "Immersion depth after Liquid Level Detection [increment] must be between 0 and 9999"
+    )
+
+    lowest_immers_pos_str = f"{lowest_immers_pos:05}"
+    start_pos_lld_search_str = f"{start_pos_lld_search:05}"
+    channel_speed_str = f"{channel_speed:05}"
+    channel_acc_str = f"{channel_acceleration:03}"
+    detection_edge_str = f"{detection_edge:04}"
+    detection_drop_str = f"{detection_drop:04}"
+    post_detection_dist_str = f"{post_detection_dist:04}"
+
+    await self.send_command(
+      module=f"P{channel_idx}",
+      command="ZL",
+        zh=lowest_immers_pos_str,  # Lowest immersion position [increment]
+        zc=start_pos_lld_search_str,  # Start position of LLD search [increment]
+        zl=channel_speed_str,  # Speed of channel movement
+        zr=channel_acc_str,  # Acceleration [1000 increment/second^2]
+        gt=detection_edge_str,  # Edge steepness at capacitive LLD detection
+        gl=detection_drop_str,  # Offset after capacitive LLD edge detection
+        zj=post_detection_trajectory,  # Movement of the channel after contacting surface
+        zi=post_detection_dist_str  # Distance to move up after detection
+    )
+    if move_channels_to_save_pos_after:
+      await self.move_all_channels_in_z_safety()
+
+    get_llds = await self.request_pip_height_last_lld()
+    result_in_mm = float(get_llds["lh"][channel_idx-1] / 10)
+
+    return result_in_mm

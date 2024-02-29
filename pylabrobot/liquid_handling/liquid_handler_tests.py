@@ -15,10 +15,11 @@ from pylabrobot.resources.volume_tracker import set_volume_tracking
 from . import backends
 from .liquid_handler import LiquidHandler, OperationCallback
 from pylabrobot.resources import (
+  Container,
   Coordinate,
   Deck,
   Lid,
-  Container,
+  Plate,
   TipRack,
   TIP_CAR_480_A00,
   PLT_CAR_L5AC_A00,
@@ -39,10 +40,12 @@ from .standard import (
 
 def _make_asp(r: Container, vol: float, tip: Any, offset: Optional[Coordinate]=None) -> Aspiration:
   return Aspiration(resource=r, volume=vol, tip=tip, offset=offset,
-                   flow_rate=None, liquid_height=None, blow_out_air_volume=0, liquids=[(None, vol)])
+                   flow_rate=None, liquid_height=None, blow_out_air_volume=None,
+                   liquids=[(None, vol)])
 def _make_disp(r: Container, vol: float, tip: Any, offset: Optional[Coordinate]=None) -> Dispense:
   return Dispense(resource=r, volume=vol, tip=tip, offset=offset,
-                  flow_rate=None, liquid_height=None, blow_out_air_volume=0, liquids=[(None, vol)])
+                  flow_rate=None, liquid_height=None, blow_out_air_volume=None,
+                  liquids=[(None, vol)])
 
 
 class TestLiquidHandlerLayout(unittest.IsolatedAsyncioTestCase):
@@ -111,16 +114,16 @@ class TestLiquidHandlerLayout(unittest.IsolatedAsyncioTestCase):
     self.deck.assign_child_resource(plt_car, rails=10)
 
     # Get resource.
-    self.assertEqual(self.lh.get_resource("tip_carrier").name, "tip_carrier")
-    self.assertEqual(self.lh.get_resource("plate carrier").name, "plate carrier")
+    self.assertEqual(self.lh.deck.get_resource("tip_carrier").name, "tip_carrier")
+    self.assertEqual(self.lh.deck.get_resource("plate carrier").name, "plate carrier")
 
     # Get subresource.
-    self.assertEqual(self.lh.get_resource("tip_rack_01").name, "tip_rack_01")
-    self.assertEqual(self.lh.get_resource("aspiration plate").name, "aspiration plate")
+    self.assertEqual(self.lh.deck.get_resource("tip_rack_01").name, "tip_rack_01")
+    self.assertEqual(self.lh.deck.get_resource("aspiration plate").name, "aspiration plate")
 
     # Get unknown resource.
     with self.assertRaises(ValueError):
-      self.lh.get_resource("unknown resource")
+      self.lh.deck.get_resource("unknown resource")
 
   def test_subcoordinates(self):
     tip_car = TIP_CAR_480_A00(name="tip_carrier")
@@ -133,30 +136,32 @@ class TestLiquidHandlerLayout(unittest.IsolatedAsyncioTestCase):
     self.deck.assign_child_resource(plt_car, rails=10)
 
     # Rails 10 should be left of rails 1.
-    self.assertGreater(self.lh.get_resource("plate carrier").get_absolute_location().x,
-                       self.lh.get_resource("tip_carrier").get_absolute_location().x)
+    self.assertGreater(self.lh.deck.get_resource("plate carrier").get_absolute_location().x,
+                       self.lh.deck.get_resource("tip_carrier").get_absolute_location().x)
 
     # Verified with Hamilton Method Editor.
     # Carriers.
-    self.assertEqual(self.lh.get_resource("tip_carrier").get_absolute_location(),
+    self.assertEqual(self.lh.deck.get_resource("tip_carrier").get_absolute_location(),
                      Coordinate(100.0, 63.0, 100.0))
-    self.assertEqual(self.lh.get_resource("plate carrier").get_absolute_location(),
+    self.assertEqual(self.lh.deck.get_resource("plate carrier").get_absolute_location(),
                      Coordinate(302.5, 63.0, 100.0))
 
     # Subresources.
     self.assertEqual(
-      cast(TipRack, self.lh.get_resource("tip_rack_01")).get_item("A1").get_absolute_location() +
-      cast(TipRack, self.lh.get_resource("tip_rack_01")).get_item("A1").center(),
+      cast(TipRack, self.lh.deck.get_resource("tip_rack_01")).get_item("A1") \
+        .get_absolute_location() +
+      cast(TipRack, self.lh.deck.get_resource("tip_rack_01")).get_item("A1").center(),
       Coordinate(117.900, 145.800, 164.450))
     self.assertEqual(
-      cast(TipRack, self.lh.get_resource("tip_rack_04")).get_item("A1").get_absolute_location() +
-      cast(TipRack, self.lh.get_resource("tip_rack_04")).get_item("A1").center(),
+      cast(TipRack, self.lh.deck.get_resource("tip_rack_04")).get_item("A1") \
+        .get_absolute_location() +
+      cast(TipRack, self.lh.deck.get_resource("tip_rack_04")).get_item("A1").center(),
       Coordinate(117.900, 433.800, 131.450))
 
     self.assertEqual(
-      cast(TipRack, self.lh.get_resource("aspiration plate")).get_item("A1")
+      cast(Plate, self.lh.deck.get_resource("aspiration plate")).get_item("A1")
         .get_absolute_location() +
-      cast(TipRack, self.lh.get_resource("aspiration plate")).get_item("A1").center(),
+      cast(Plate, self.lh.deck.get_resource("aspiration plate")).get_item("A1").center(),
         Coordinate(320.500, 146.000, 187.150))
 
   def test_illegal_subresource_assignment_before(self):
@@ -190,7 +195,7 @@ class TestLiquidHandlerLayout(unittest.IsolatedAsyncioTestCase):
     await self.lh.move_plate(plate, plt_car[2])
     self.assertIsNotNone(plt_car[2].resource)
     self.assertIsNone(plt_car[0].resource)
-    self.assertEqual(plt_car[2].resource, self.lh.get_resource("plate"))
+    self.assertEqual(plt_car[2].resource, self.lh.deck.get_resource("plate"))
     self.assertEqual(plate.get_item("A1").get_absolute_location() + plate.get_item("A1").center(),
                      Coordinate(568.000, 338.000, 187.150))
 
@@ -200,7 +205,7 @@ class TestLiquidHandlerLayout(unittest.IsolatedAsyncioTestCase):
     self.deck.assign_child_resource(plt_car, rails=1)
 
     await self.lh.move_plate(plate, Coordinate(1000, 1000, 1000))
-    self.assertIsNotNone(self.lh.get_resource("plate"))
+    self.assertIsNotNone(self.lh.deck.get_resource("plate"))
     self.assertIsNone(plt_car[0].resource)
     self.assertEqual(plate.get_absolute_location(),
       Coordinate(1000, 1000, 1000))
@@ -292,8 +297,14 @@ class TestLiquidHandlerCommands(unittest.IsolatedAsyncioTestCase):
       await self.lh.return_tips()
 
   async def test_return_tips96(self):
+    for i in range(96):
+      assert not self.lh.head96[i].has_tip, f"Channel head {i} is not empty."
     await self.lh.pick_up_tips96(self.tip_rack)
+    for i in range(96):
+      assert self.lh.head96[i].has_tip, f"Channel head {i} is empty."
     await self.lh.return_tips96()
+    for i in range(96):
+      assert not self.lh.head96[i].has_tip, f"Channel head {i} is not empty."
 
     self.assertEqual(self.get_first_command("drop_tips96"), {
       "command": "drop_tips96",
@@ -304,6 +315,17 @@ class TestLiquidHandlerCommands(unittest.IsolatedAsyncioTestCase):
 
     with self.assertRaises(RuntimeError):
       await self.lh.return_tips()
+
+  async def test_aspirate_dispense96(self):
+    self.plate.get_item("A1").tracker.set_liquids([(None, 10)])
+    await self.lh.pick_up_tips96(self.tip_rack)
+    await self.lh.aspirate_plate(self.plate, volume=10)
+    for i in range(96):
+      self.assertTrue(self.lh.head96[i].has_tip)
+      self.assertEqual(self.lh.head96[i].get_tip().tracker.get_used_volume(), 10)
+    await self.lh.dispense_plate(self.plate, volume=10)
+    for i in range(96):
+      self.assertEqual(self.lh.head96[i].get_tip().tracker.get_used_volume(), 0)
 
   async def test_transfer(self):
     t = self.tip_rack.get_item("A1").get_tip()
@@ -408,14 +430,14 @@ class TestLiquidHandlerCommands(unittest.IsolatedAsyncioTestCase):
       "args": (),
       "kwargs": {"aspiration":
         AspirationPlate(resource=self.plate, volume=10.0, tips=ts, offset=Coordinate.zero(),
-                        flow_rate=None, liquid_height=None, blow_out_air_volume=0,
+                      flow_rate=None, liquid_height=None, blow_out_air_volume=None,
                         liquids=[[(None, 10)]]*96)}})
     self.assertEqual(self.get_first_command("dispense96"), {
       "command": "dispense96",
       "args": (),
       "kwargs": {"dispense":
         DispensePlate(resource=self.plate, volume=10.0, tips=ts, offset=Coordinate.zero(),
-                flow_rate=None, liquid_height=None, blow_out_air_volume=0,
+                flow_rate=None, liquid_height=None, blow_out_air_volume=None,
                 liquids=[[(None, 10)]]*96)}})
     self.backend.clear()
 
@@ -551,7 +573,7 @@ class TestLiquidHandlerCommands(unittest.IsolatedAsyncioTestCase):
 
     # save the state
     state_filename = tempfile.mktemp()
-    self.lh.deck.save_state_to_file(filename=state_filename)
+    self.lh.deck.save_state_to_file(fn=state_filename)
 
     # save the deck
     deck_filename = tempfile.mktemp()
@@ -560,7 +582,7 @@ class TestLiquidHandlerCommands(unittest.IsolatedAsyncioTestCase):
     # create a new liquid handler, load the state and the deck
     lh2 = LiquidHandler(self.backend, deck=STARLetDeck())
     lh2.deck = Deck.load_from_json_file(json_file=deck_filename)
-    lh2.deck.load_state_from_file(filename=state_filename)
+    lh2.deck.load_state_from_file(fn=state_filename)
 
     # assert that the state is the same
     well_a1 = lh2.deck.get_resource("plate").get_item("A1") # type: ignore

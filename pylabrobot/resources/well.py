@@ -79,6 +79,8 @@ class Well(Container):
     self._compute_volume_from_height = compute_volume_from_height
     self.cross_section_type = cross_section_type
 
+    self.tracker.register_callback(self._state_updated)
+
   def serialize(self):
     return {
       **super().serialize(),

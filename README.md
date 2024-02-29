@@ -11,7 +11,7 @@ PyLabRobot is a hardware agnostic, pure Python library for liquid handling robot
 
 ### Liquid handling robots
 
-PyLabRobot provides a layer of general-purpose abstractions over robot functions, with various device drivers for communicating with different kinds of robots. Right now we only have drivers for Hamilton, Tecan and Opentrons liquid handling robots, but we will soon have drivers for many more. The Hamiton and Tecan backends provide an interactive firmware interface that works on Windows, macOS and Linux. The Opentrons driver is based on the [Opentrons HTTP API](https://github.com/rickwierenga/opentrons-python-api). We also provide a simulator which simulates protocols in a browser-based deck visualization.
+PyLabRobot provides a layer of general-purpose abstractions over robot functions, with various device drivers for communicating with different kinds of robots. Right now we only have drivers for Hamilton, Tecan and Opentrons liquid handling robots, but we will soon have drivers for many more. The Hamiton and Tecan backends provide an interactive firmware interface that works on Windows, macOS and Linux. The Opentrons driver is based on the [Opentrons HTTP API](https://github.com/rickwierenga/opentrons-python-api). We also provide a browser-based Visualizer which can visualize the state of the deck during a run, and testing backends which do not require access to a robot.
 
 Here's a quick example showing how to move 100uL of liquid from well A1 to A2 using firmware on **Hamilton STAR** (this will work on any operating system!):
 
@@ -24,9 +24,9 @@ deck = Deck.load_from_json_file("hamilton-layout.json")
 lh = LiquidHandler(backend=STAR(), deck=deck)
 await lh.setup()
 
-await lh.pick_up_tips(lh.get_resource("tip_rack")["A1"])
-await lh.aspirate(lh.get_resource("plate")["A1"], vols=100)
-await lh.dispense(lh.get_resource("plate")["A2"], vols=100)
+await lh.pick_up_tips(lh.deck.get_resource("tip_rack")["A1"])
+await lh.aspirate(lh.deck.get_resource("plate")["A1"], vols=100)
+await lh.dispense(lh.deck.get_resource("plate")["A2"], vols=100)
 await lh.return_tips()
 ```
 
@@ -68,7 +68,7 @@ await pr.setup()
 
 # Use in combination with a liquid handler
 lh.assign_child_resource(pr, location=Coordinate(x, y, z))
-lh.move_plate(lh.get_resource("plate"), pr)
+lh.move_plate(lh.deck.get_resource("plate"), pr)
 
 data = await pr.read_luminescence()
 ```
