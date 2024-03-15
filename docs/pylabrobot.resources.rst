@@ -89,6 +89,18 @@ Falcon
     pylabrobot.resources.falcon.tubes
 
 
+Greiner
+-------
+
+.. autosummary::
+  :toctree: _autosummary
+  :nosignatures:
+  :recursive:
+
+    pylabrobot.resources.greiner
+    pylabrobot.resources.greiner.plates
+
+
 Hamilton
 --------
 
@@ -101,6 +113,18 @@ Hamilton
     pylabrobot.resources.hamilton.hamilton_decks.HamiltonDeck
     pylabrobot.resources.hamilton.STARDeck
     pylabrobot.resources.hamilton.STARLetDeck
+
+
+Limbro
+------
+
+.. autosummary::
+  :toctree: _autosummary
+  :nosignatures:
+  :recursive:
+
+    pylabrobot.resources.limbro
+    pylabrobot.resources.limbro.plates
 
 
 ML Star resources
@@ -129,8 +153,9 @@ Opentrons
     pylabrobot.resources.opentrons
     pylabrobot.resources.opentrons.deck
     pylabrobot.resources.opentrons.load
-    pylabrobot.resources.opentrons.tip_racks
     pylabrobot.resources.opentrons.plates
+    pylabrobot.resources.opentrons.tip_racks
+    pylabrobot.resources.opentrons.tube_racks
 
 
 Porvair

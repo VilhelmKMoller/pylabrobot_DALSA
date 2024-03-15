@@ -2,6 +2,8 @@
   "editor.tabSize": 2,
   "files.trimTrailingWhitespace": true,
   "cSpell.words": [
+    "agrow",
+    "agrowpumps",
     "coro",
     "Defaultable",
     "frontmost",
@@ -10,7 +12,7 @@
     "jsonify",
     "klass",
     "labware",
-    "pyhamilton",
+    "modbus",
     "pylabrobot",
     "pytest",
     "subclassing",
@@ -21,6 +23,9 @@
     "websockets"
   ],
   "python.linting.pylintEnabled": true,
+  "python.linting.pylintArgs": ["--disable={c0103}"],
+  "python.linting.mypyEnabled": true,
+  "python.linting.enabled": true,
   "python.testing.pytestArgs": ["."],
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
@@ -39,7 +44,5 @@
     "editor.wordWrap": "bounded",
     "editor.wordWrapColumn": 100
   },
-  "python.linting.mypyEnabled": true,
-  "python.linting.enabled": true,
   "mypy.runUsingActiveInterpreter": true
 }

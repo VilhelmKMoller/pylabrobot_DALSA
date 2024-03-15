@@ -2,6 +2,7 @@
 
 from typing import cast
 import unittest
+import unittest.mock
 
 from pylabrobot.liquid_handling import LiquidHandler
 from pylabrobot.liquid_handling.backends.backend import LiquidHandlerBackend
@@ -23,6 +24,7 @@ from pylabrobot.resources import (
 from pylabrobot.resources.hamilton import STARLetDeck
 from pylabrobot.resources.ml_star import STF_L
 from pylabrobot.liquid_handling.standard import Pickup, GripDirection
+from pylabrobot.resources.plate import Plate
 
 from tests.usb import MockDev, MockEndpoint
 
@@ -519,6 +521,14 @@ class TestSTARLiquidHandlerCommands(unittest.IsolatedAsyncioTestCase):
       "ms0010 0010 0010&mh0000 0000 0000&gi000 000 000&gj0gk0",
       fmt=DISPENSE_RESPONSE_FORMAT)
 
+  async def test_zero_volume_liquid_handling(self):
+    # just test that this does not throw an error
+    self.lh.update_head_state({0: self.tip_rack.get_tip("A1")})
+    assert self.plate.lid is not None
+    self.plate.lid.unassign()
+    await self.lh.aspirate(self.plate["A1"], vols=[0])
+    await self.lh.dispense(self.plate["A1"], vols=[0])
+
   async def test_core_96_tip_pickup(self):
     await self.lh.pick_up_tips96(self.tip_rack)
 
@@ -534,17 +544,25 @@ class TestSTARLiquidHandlerCommands(unittest.IsolatedAsyncioTestCase):
       "C0ERid0213xs01179xd0yh2418za2164zh2450ze2450",
                 "xs#####xd#yh####za####zh####ze####")
 
+  async def test_core_96_tip_discard(self):
+    await self.lh.pick_up_tips96(self.tip_rack) # pick up tips first
+    await self.lh.discard_tips96()
+
+    self._assert_command_sent_once(
+      "C0ERid0213xs02321xd1yh1103za2164zh2450ze2450",
+                "xs#####xd#yh####za####zh####ze####")
+
   async def test_core_96_aspirate(self):
     await self.lh.pick_up_tips96(self.tip_rack2) # pick up high volume tips
 
     # TODO: Hamilton liquid classes
     assert self.plate.lid is not None
     self.plate.lid.unassign()
-    await self.lh.aspirate_plate(self.plate, volume=100, blow_out=True)
+    await self.lh.aspirate96(self.plate, volume=100, blow_out=True)
 
     # volume used to be 01072, but that was generated using a non-core liquid class.
     self._assert_command_sent_once(
-      "C0EAid0001aa0xs02980xd0yh1460zh2450ze2450lz1999zt1881zm1269iw000ix0fh000af01083ag2500vt050"
+      "C0EAid0001aa0xs02980xd0yh1460zh2450ze2450lz1999zt1881zm1871iw000ix0fh000af01083ag2500vt050"
       "bv00000wv00050cm0cs1bs0020wh10hv00000hc00hp000hs1200zv0032zq06180mj000cj0cx0cr000"
       "cwFFFFFFFFFFFFFFFFFFFFFFFFpp0100",
       "xs#####xd#yh####zh####ze####lz####zt####zm####iw###ix#fh###af#####ag####vt###"
@@ -555,27 +573,35 @@ class TestSTARLiquidHandlerCommands(unittest.IsolatedAsyncioTestCase):
     await self.lh.pick_up_tips96(self.tip_rack2) # pick up high volume tips
     if self.plate.lid is not None:
       self.plate.lid.unassign()
-    await self.lh.aspirate_plate(self.plate, 100, blow_out=True) # aspirate first
+    await self.lh.aspirate96(self.plate, 100, blow_out=True) # aspirate first
 
     with no_volume_tracking():
-      await self.lh.dispense_plate(self.plate, 100, blow_out=True)
+      await self.lh.dispense96(self.plate, 100, blow_out=True)
 
     # volume used to be 01072, but that was generated using a non-core liquid class.
     self._assert_command_sent_once(
-      "C0EDid0001da3xs02980xd0yh1460zh2450ze2450lz1999zt1881zm1869iw000ix0fh000df01083dg1200vt050"
+      "C0EDid0001da3xs02980xd0yh1460zh2450ze2450lz1999zt1881zm1871iw000ix0fh000df01083dg1200vt050"
       "bv00000cm0cs1bs0020wh00hv00000hc00hp000hs1200es0050ev000zv0032ej00zq06180mj000cj0cx0cr000"
       "cwFFFFFFFFFFFFFFFFFFFFFFFFpp0100",
       "da#xs#####xd#yh##6#zh####ze####lz####zt####zm##6#iw###ix#fh###df#####dg####vt###"
       "bv#####cm#cs#bs####wh##hv#####hc##hp###hs####es####ev###zv####ej##zq#6###mj###cj#cx#cr###"
       "cw************************pp####")
 
+  async def test_zero_volume_liquid_handling96(self):
+    # just test that this does not throw an error
+    await self.lh.pick_up_tips96(self.tip_rack)
+    assert self.plate.lid is not None
+    self.plate.lid.unassign()
+    await self.lh.aspirate96(self.plate, 0)
+    await self.lh.dispense96(self.plate, 0)
+
   async def test_iswap(self):
     await self.lh.move_plate(self.plate, self.plt_car[2])
     self._assert_command_sent_once(
-      "C0PPid0011xs03475xd0yj1145yd0zj1874zd0gr1th2840te2840gw4go1300gb1237gt20ga0gc1",
+      "C0PPid0011xs03475xd0yj1145yd0zj1874zd0gr1th2450te2450gw4go1300gb1237gt20ga0gc1",
       "xs#####xd#yj####yd#zj####zd#gr#th####te####gw#go####gb####gt##ga#gc#")
     self._assert_command_sent_once(
-      "C0PRid0012xs03475xd0yj3065yd0zj1874zd0th2840te2840gr1go1300ga0",
+      "C0PRid0012xs03475xd0yj3065yd0zj1874zd0th2450te2450gr1go1300ga0",
       "xs#####xd#yj####yd#zj####zd#th####te####go####ga#")
 
   async def test_iswap_plate_reader(self):
@@ -585,22 +611,22 @@ class TestSTARLiquidHandlerCommands(unittest.IsolatedAsyncioTestCase):
       location=Coordinate(979.5, 285.2, 200)) # 666: 00002
 
     await self.lh.move_plate(self.plate, plate_reader, pickup_distance_from_top=8.2,
-      get_direction=GripDirection.FRONT, put_direction=GripDirection.LEFT)
+      get_direction=GripDirection.FRONT, put_direction=GripDirection.FRONT)
     self._assert_command_sent_once(
-      "C0PPid0003xs03475xd0yj1145yd0zj1924zd0th2840te2840gw4gb1237go1300gt20gr1ga0gc1",
+      "C0PPid0003xs03475xd0yj1145yd0zj1924zd0th2450te2450gw4gb1237go1300gt20gr1ga0gc1",
                 "xs#####xd#yj####yd#zj####zd#th####te####gw#gb####go####gt##gr#ga#gc#")
     self._assert_command_sent_once(
-      "C0PRid0004xs10430xd0yj3282yd0zj2063zd0th2840te2840go1300gr4ga0",
+      "C0PRid0004xs10430xd0yj3282yd0zj2063zd0th2450te2450go1300gr1ga0",
                 "xs#####xd#yj####yd#zj####zd#th####te####go####gr#ga#")
 
     await self.lh.move_plate(plate_reader.get_plate(), self.plt_car[0],
-      pickup_distance_from_top=8.2, get_direction=GripDirection.LEFT,
+      pickup_distance_from_top=8.2, get_direction=GripDirection.FRONT,
       put_direction=GripDirection.FRONT)
     self._assert_command_sent_once(
-      "C0PPid0005xs10430xd0yj3282yd0zj2063zd0gr4th2840te2840gw4go1300gb1237gt20ga0gc1",
+      "C0PPid0005xs10430xd0yj3282yd0zj2063zd0gr1th2450te2450gw4go1300gb1237gt20ga0gc1",
                 "xs#####xd#yj####yd#zj####zd#gr#th####te####gw#go####gb####gt##ga#gc#")
     self._assert_command_sent_once(
-      "C0PRid0006xs03475xd0yj1145yd0zj1924zd0th2840te2840gr1go1300ga0",
+      "C0PRid0006xs03475xd0yj1145yd0zj1924zd0th2450te2450gr1go1300ga0",
                 "xs#####xd#yj####yd#zj####zd#th####te####gr#go####ga#")
 
   async def test_iswap_move_lid(self):
@@ -609,10 +635,10 @@ class TestSTARLiquidHandlerCommands(unittest.IsolatedAsyncioTestCase):
     await self.lh.move_lid(self.plate.lid, self.other_plate)
 
     self._assert_command_sent_once(
-      "C0PPid0002xs03475xd0yj1145yd0zj1949zd0gr1th2840te2840gw4go1300gb1237gt20ga0gc1",
+      "C0PPid0002xs03475xd0yj1145yd0zj1949zd0gr1th2450te2450gw4go1300gb1237gt20ga0gc1",
       GET_PLATE_FMT)
     self._assert_command_sent_once( # zj sent = 1849
-      "C0PRid0003xs03475xd0yj2105yd0zj1949zd0th2840te2840gr1go1300ga0", PUT_PLATE_FMT)
+      "C0PRid0003xs03475xd0yj2105yd0zj1949zd0th2450te2450gr1go1300ga0", PUT_PLATE_FMT)
 
   async def test_iswap_stacking_area(self):
     stacking_area = ResourceStack("stacking_area", direction="z")
@@ -624,18 +650,18 @@ class TestSTARLiquidHandlerCommands(unittest.IsolatedAsyncioTestCase):
     assert self.plate.lid is not None
     await self.lh.move_lid(self.plate.lid, stacking_area)
     self._assert_command_sent_once(
-      "C0PPid0002xs03475xd0yj1145yd0zj1949zd0gr1th2840te2840gw4go1300gb1237gt20ga0gc1",
+      "C0PPid0002xs03475xd0yj1145yd0zj1949zd0gr1th2450te2450gw4go1300gb1237gt20ga0gc1",
         GET_PLATE_FMT)
     self._assert_command_sent_once(
-      "C0PRid0003xs00695xd0yj4570yd0zj2305zd0th2840te2840gr1go1300ga0", PUT_PLATE_FMT)
+      "C0PRid0003xs00695xd0yj4570yd0zj2305zd0th2450te2450gr1go1300ga0", PUT_PLATE_FMT)
 
     # Move lids back (reverse order)
     await self.lh.move_lid(cast(Lid, stacking_area.get_top_item()), self.plate)
     self._assert_command_sent_once(
-      "C0PPid0004xs00695xd0yj4570yd0zj2305zd0gr1th2840te2840gw4go1300gb1237gt20ga0gc1",
+      "C0PPid0004xs00695xd0yj4570yd0zj2305zd0gr1th2450te2450gw4go1300gb1237gt20ga0gc1",
       GET_PLATE_FMT)
     self._assert_command_sent_once(
-      "C0PRid0005xs03475xd0yj1145yd0zj1949zd0th2840te2840gr1go1300ga0", PUT_PLATE_FMT)
+      "C0PRid0005xs03475xd0yj1145yd0zj1949zd0th2450te2450gr1go1300ga0", PUT_PLATE_FMT)
 
   async def test_iswap_stacking_area_2lids(self):
     # for some reason it was like this at some point
@@ -647,36 +673,36 @@ class TestSTARLiquidHandlerCommands(unittest.IsolatedAsyncioTestCase):
 
     await self.lh.move_lid(self.plate.lid, stacking_area)
     self._assert_command_sent_once(
-      "C0PPid0002xs03475xd0yj1145yd0zj1949zd0gr1th2840te2840gw4go1300gb1237gt20ga0gc1",
+      "C0PPid0002xs03475xd0yj1145yd0zj1949zd0gr1th2450te2450gw4go1300gb1237gt20ga0gc1",
         GET_PLATE_FMT)
     self._assert_command_sent_once(
-      "C0PRid0003xs00695xd0yj4570yd0zj2305zd0th2840te2840gr1go1300ga0", PUT_PLATE_FMT)
+      "C0PRid0003xs00695xd0yj4570yd0zj2305zd0th2450te2450gr1go1300ga0", PUT_PLATE_FMT)
 
     await self.lh.move_lid(self.other_plate.lid, stacking_area)
     self._assert_command_sent_once(
-      "C0PPid0004xs03475xd0yj2105yd0zj1949zd0gr1th2840te2840gw4go1300gb1237gt20ga0gc1",
+      "C0PPid0004xs03475xd0yj2105yd0zj1949zd0gr1th2450te2450gw4go1300gb1237gt20ga0gc1",
         GET_PLATE_FMT)
     self._assert_command_sent_once(
-      "C0PRid0005xs00695xd0yj4570yd0zj2405zd0th2840te2840gr1go1300ga0", PUT_PLATE_FMT)
+      "C0PRid0005xs00695xd0yj4570yd0zj2405zd0th2450te2450gr1go1300ga0", PUT_PLATE_FMT)
 
     # Move lids back (reverse order)
     top_item = stacking_area.get_top_item()
     assert isinstance(top_item, Lid)
     await self.lh.move_lid(top_item, self.plate)
     self._assert_command_sent_once(
-      "C0PPid0004xs00695xd0yj4570yd0zj2405zd0gr1th2840te2840gw4go1300gb1237gt20ga0gc1",
+      "C0PPid0004xs00695xd0yj4570yd0zj2405zd0gr1th2450te2450gw4go1300gb1237gt20ga0gc1",
       GET_PLATE_FMT)
     self._assert_command_sent_once(
-      "C0PRid0005xs03475xd0yj1145yd0zj1949zd0th2840te2840gr1go1300ga0", PUT_PLATE_FMT)
+      "C0PRid0005xs03475xd0yj1145yd0zj1949zd0th2450te2450gr1go1300ga0", PUT_PLATE_FMT)
 
     top_item = stacking_area.get_top_item()
     assert isinstance(top_item, Lid)
     await self.lh.move_lid(top_item, self.other_plate)
     self._assert_command_sent_once(
-      "C0PPid0004xs00695xd0yj4570yd0zj2305zd0gr1th2840te2840gw4go1300gb1237gt20ga0gc1",
+      "C0PPid0004xs00695xd0yj4570yd0zj2305zd0gr1th2450te2450gw4go1300gb1237gt20ga0gc1",
       GET_PLATE_FMT)
     self._assert_command_sent_once(
-      "C0PRid0005xs03475xd0yj2105yd0zj1949zd0th2840te2840gr1go1300ga0", PUT_PLATE_FMT)
+      "C0PRid0005xs03475xd0yj2105yd0zj1949zd0th2450te2450gr1go1300ga0", PUT_PLATE_FMT)
 
   async def test_iswap_move_with_intermediate_locations(self):
     await self.lh.move_plate(self.plate, self.plt_car[1], intermediate_locations=[
@@ -685,14 +711,14 @@ class TestSTARLiquidHandlerCommands(unittest.IsolatedAsyncioTestCase):
     ])
 
     self._assert_command_sent_once(
-      "C0PPid0023xs03475xd0yj1145yd0zj1874zd0gr1th2840te2840gw4go1300gb1237gt20ga0gc1",
+      "C0PPid0023xs03475xd0yj1145yd0zj1874zd0gr1th2450te2450gw4go1300gb1237gt20ga0gc1",
       GET_PLATE_FMT)
     self._assert_command_sent_once(
-      "C0PMid0025xs03975xd0yj3065yd0zj2434zd0gr1th2840ga1xe4 1", INTERMEDIATE_FMT)
+      "C0PMid0025xs03975xd0yj3065yd0zj2434zd0gr1th2450ga1xe4 1", INTERMEDIATE_FMT)
     self._assert_command_sent_once(
-      "C0PMid0024xs02975xd0yj4025yd0zj2434zd0gr1th2430ga1xe4 1", INTERMEDIATE_FMT)
+      "C0PMid0024xs02975xd0yj4025yd0zj2434zd0gr1th2450ga1xe4 1", INTERMEDIATE_FMT)
     self._assert_command_sent_once(
-      "C0PRid0026xs03475xd0yj2105yd0zj1874zd0th2430te2840gr1go1300ga0",
+      "C0PRid0026xs03475xd0yj2105yd0zj1874zd0th2450te2450gr1go1300ga0",
       PUT_PLATE_FMT)
 
   async def test_discard_tips(self):
@@ -738,9 +764,49 @@ class TestSTARLiquidHandlerCommands(unittest.IsolatedAsyncioTestCase):
     self._assert_command_sent_once("C0ZTid0020xs07975xd0ya1250yb1070pa07pb08tp2350tz2250th2450tt14",
                                    "xs#####xd#ya####yb####pa##pb##tp####tz####th####tt##")
     self._assert_command_sent_once("C0ZPid0021xs03475xd0yj1145yv0050zj1876zy0500yo0890yg0830yw15"
-                                   "th2840te2750",
+                                   "th2450te2450",
                                    "xs#####xd#yj####yv####zj####zy####yo####yg####yw##th####te####")
-    self._assert_command_sent_once("C0ZRid0022xs03475xd0yj2105zj1876zi000zy0500yo0890th2840te2750",
+    self._assert_command_sent_once("C0ZRid0022xs03475xd0yj2105zj1876zi000zy0500yo0890th2450te2450",
                                    "xs#####xd#yj####zj####zi###zy####yo####th####te####")
     self._assert_command_sent_once("C0ZSid0023xs07975xd0ya1250yb1070tp2150tz2050th2450te2450",
                                     "xs#####xd#ya####yb####tp####tz####th####te####")
+
+  async def test_iswap_pick_up_resource_grip_direction_changes_plate_width(self):
+    size_x = 100
+    size_y = 200
+    plate = Plate("dummy", size_x=size_x, size_y=size_y, size_z=100, items=[])
+    plate.location = Coordinate.zero()
+
+    with unittest.mock.patch.object(self.lh.backend, "iswap_get_plate") as mocked_iswap_get_plate:
+      await cast(STAR, self.lh.backend).iswap_pick_up_resource(plate, GripDirection.FRONT, 1)
+      assert mocked_iswap_get_plate.call_args.kwargs["plate_width"] == size_x * 10 - 33
+
+    with unittest.mock.patch.object(self.lh.backend, "iswap_get_plate") as mocked_iswap_get_plate:
+      await cast(STAR, self.lh.backend).iswap_pick_up_resource(plate, GripDirection.LEFT, 1)
+      assert mocked_iswap_get_plate.call_args.kwargs["plate_width"] == size_y * 10 - 33
+
+  async def test_iswap_release_picked_up_resource_grip_direction_changes_plate_width(self):
+    size_x = 100
+    size_y = 200
+    plate = Plate("dummy", size_x=size_x, size_y=size_y, size_z=100, items=[])
+    plate.location = Coordinate.zero()
+
+    with unittest.mock.patch.object(self.lh.backend, "iswap_put_plate") as mocked_iswap_get_plate:
+      await cast(STAR, self.lh.backend).iswap_release_picked_up_resource(
+        Coordinate.zero(),
+        plate,
+        Coordinate.zero(),
+        GripDirection.FRONT,
+        1,
+      )
+      assert mocked_iswap_get_plate.call_args.kwargs["open_gripper_position"] == size_x * 10 + 30
+
+    with unittest.mock.patch.object(self.lh.backend, "iswap_put_plate") as mocked_iswap_get_plate:
+      await cast(STAR, self.lh.backend).iswap_release_picked_up_resource(
+        Coordinate.zero(),
+        plate,
+        Coordinate.zero(),
+        GripDirection.LEFT,
+        1,
+      )
+      assert mocked_iswap_get_plate.call_args.kwargs["open_gripper_position"] == size_y * 10 + 30

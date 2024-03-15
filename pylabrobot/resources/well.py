@@ -1,8 +1,9 @@
 import enum
 import math
-from typing import Callable, Optional, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 from pylabrobot.resources.container import Container
+from pylabrobot.resources.liquid import Liquid
 
 
 class WellBottomType(enum.Enum):
@@ -17,13 +18,13 @@ class WellBottomType(enum.Enum):
 class CrossSectionType(enum.Enum):
   """ Enum for the type of cross section of a well.
 
-  A well with a circular cross section will be a cylinder, and a well with a square cross section
-  will be a rectangular cuboid. Note that the bottom section of a well may be any of the
+  A well with a circular cross section will be a cylinder, and a well with a rectangular cross
+  section will be a cuboid. Note that the bottom section of a well may be any of the
   :class:`WellBottomType` values.
   """
 
   CIRCLE = "circle"
-  SQUARE = "square"
+  RECTANGLE = "rectangle"
 
 
 class Well(Container):
@@ -67,8 +68,7 @@ class Well(Container):
         if cross_section_type == CrossSectionType.CIRCLE:
           assert size_x == size_y, "size_x and size_y must be equal for circular wells."
           max_volume = math.pi * (size_x / 2) ** 2 * size_z
-        elif cross_section_type == CrossSectionType.SQUARE:
-          assert size_x == size_y, "size_x and size_y must be equal for square wells."
+        elif cross_section_type == CrossSectionType.RECTANGLE:
           max_volume = size_x * size_y * size_z
       else:
         max_volume = compute_volume_from_height(size_z)
@@ -106,3 +106,16 @@ class Well(Container):
       raise NotImplementedError("compute_volume_from_height not implemented.")
 
     return self._compute_volume_from_height(height)
+
+  def set_liquids(self, liquids: List[Tuple[Optional["Liquid"], float]]):
+    """ Set the liquids in the well.
+
+    (wraps :meth:`~.VolumeTracker.set_liquids`)
+
+    Example:
+      Set the liquids in a well to 10 uL of water:
+
+      >>> well.set_liquids([(Liquid.WATER, 10)])
+    """
+
+    self.tracker.set_liquids(liquids)

@@ -322,14 +322,14 @@ class HamiltonLiquidHandler(USBBackend, metaclass=ABCMeta):
       offset = ops[i].offset
 
       x_pos = ops[i].resource.get_absolute_location().x
-      if offset is None or isinstance(ops[i].resource, (TipSpot, Well)):
+      if isinstance(ops[i].resource, (TipSpot, Well)):
         x_pos += ops[i].resource.center().x
       if offset is not None:
         x_pos += offset.x
       x_positions.append(int(x_pos*10))
 
       y_pos = ops[i].resource.get_absolute_location().y
-      if offset is None or isinstance(ops[i].resource, (TipSpot, Well)):
+      if isinstance(ops[i].resource, (TipSpot, Well)):
         y_pos += ops[i].resource.center().y
       if offset is not None:
         y_pos += offset.y
@@ -419,3 +419,27 @@ class HamiltonLiquidHandler(USBBackend, metaclass=ABCMeta):
     """
 
     return [await self.get_or_assign_tip_type_index(tip) for tip in tips]
+
+  async def send_raw_command(
+    self,
+    command: str,
+    write_timeout: Optional[int] = None,
+    read_timeout: Optional[int] = None,
+    wait: bool = True
+  ) -> Optional[str]:
+    """ Send a raw command to the machine. """
+    id_index = command.find("id")
+    if id_index == -1:
+      raise ValueError("Command must contain an id.")
+    id_str = command[id_index + 2 : id_index + 6]
+    if not id_str.isdigit():
+      raise ValueError("Id must be a 4 digit int.")
+    id_ = int(id_str)
+
+    return await self._write_and_read_command(
+      id_=id_,
+      cmd=command,
+      write_timeout=write_timeout,
+      read_timeout=read_timeout,
+      wait=wait,
+    )

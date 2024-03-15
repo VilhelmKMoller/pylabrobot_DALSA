@@ -81,10 +81,10 @@ class Deck(Resource):
     """ Returns the resource with the given name.
 
     Raises:
-      ValueError: If the resource is not found.
+      ResourceNotFoundError: If the resource is not found.
     """
     if not self.has_resource(name):
-      raise ValueError(f"Resource '{name}' not found")
+      raise ResourceNotFoundError(f"Resource '{name}' not found")
     return self.resources[name]
 
   def has_resource(self, name: str) -> bool:
@@ -121,3 +121,7 @@ class Deck(Resource):
     for resource in self.children:
       summary_ += f"{resource.name}: {resource}\n"
     return summary_
+
+  def get_trash_area96(self) -> Trash:
+    deck_class = self.__class__.__name__
+    raise NotImplementedError(f"This method is not implemented by deck '{deck_class}'")
