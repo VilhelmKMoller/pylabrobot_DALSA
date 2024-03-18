@@ -8,3 +8,4 @@ pyhamilton/LAY-BACKUP
 *.egg-info
 *.log
 build/lib
+venv/
