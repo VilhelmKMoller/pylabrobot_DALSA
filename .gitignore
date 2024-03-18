@@ -10,3 +10,4 @@ pyhamilton/LAY-BACKUP
 build/lib
 venv/
 venv/*
+venv\
