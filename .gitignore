@@ -9,3 +9,4 @@ pyhamilton/LAY-BACKUP
 *.log
 build/lib
 venv/
+venv/*
