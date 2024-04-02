@@ -3,19 +3,16 @@ This file defines interfaces for all supported Hamilton liquid handling robots.
 """
 # pylint: disable=invalid-sequence-index, dangerous-default-value
 
-from abc import ABC
+from abc import ABCMeta
 import datetime
 import enum
 import functools
 import logging
 import re
-from typing import Callable, Dict, ItemsView, List, Literal, Optional, Sequence, Type, TypeVar, \
-  Union, cast
+from typing import Callable, Dict, List, Literal, Optional, Sequence, Type, TypeVar, Union, cast
 
-from pylabrobot.liquid_handling.backends.hamilton.base import (
-  HamiltonLiquidHandler,
-  HamiltonFirmwareError
-)
+from pylabrobot.liquid_handling.backends.hamilton.base import HamiltonLiquidHandler
+from pylabrobot.liquid_handling.errors import ChannelizedError
 from pylabrobot.liquid_handling.liquid_classes.hamilton import (
   HamiltonLiquidClass, get_star_liquid_class)
 from pylabrobot.liquid_handling.standard import (
@@ -39,7 +36,7 @@ from pylabrobot.resources.errors import (
 )
 from pylabrobot.resources.liquid import Liquid
 from pylabrobot.resources.ml_star import HamiltonTip, TipDropMethod, TipPickupMethod, TipSize
-
+from pylabrobot import audio
 
 T = TypeVar("T")
 
@@ -207,7 +204,7 @@ def parse_star_fw_string(resp: str, fmt: str = "") -> dict:
   return info
 
 
-class STARModuleError(ABC):
+class STARModuleError(Exception, metaclass=ABCMeta):
   """ Base class for all Hamilton backend errors, raised by a single module. """
 
   def __init__(
@@ -541,6 +538,14 @@ class DecapperHandlingError(STARModuleError):
   """
 
 
+class StopError(STARModuleError):
+  """
+  Hood is open (Not from documentation, but observed)
+
+  Code: 36
+  """
+
+
 class SlaveError(STARModuleError):
   """ Slave error
 
@@ -782,7 +787,7 @@ def trace_information_to_string(module_identifier: str, trace_information: int) 
   """ Convert a trace identifier to an error message. """
   table = None
 
-  if module_identifier == "C0":
+  if module_identifier == "C0": # master
     table = {
       10: "CAN error",
       11: "Slave command time out",
@@ -811,8 +816,12 @@ def trace_information_to_string(module_identifier: str, trace_information: int) 
       52: "Imaging channel task busy",
       53: "Robotic channel task busy"
     }
+  elif module_identifier == "I0": # autoload
+    table = {
+      36: "Hamilton will not run while the hood is open"
+    }
   elif module_identifier in ["PX", "P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "PA",
-                              "PB", "PC", "PD", "PE", "PF", "PG"]:
+                             "PB", "PC", "PD", "PE", "PF", "PG"]:
     table = {
       0: "No error",
       20: "No communication to EEPROM",
@@ -945,66 +954,16 @@ def trace_information_to_string(module_identifier: str, trace_information: int) 
   return f"Unknown trace information code {trace_information:02}"
 
 
-class STARFirmwareError(HamiltonFirmwareError):
-  """
-  All Hamilton machine errors.
-
-  Example:
-    >>> try:
-    ...   lh.pick_up_tips([True, True, True])
-    ... except STARFirmwareError as e:
-    ...   print(e)
-    STARFirmwareError({
-      'Pipetting channel 1': NoTipError('Tip already picked up'),
-      'Pipetting channel 3': NoTipError('Tip already picked up'),
-    })
-
-    >>> try:
-    ...   lh.pick_up_tips([True, False, True])
-    ... except STARFirmwareError as e:
-    ...   if 'Pipetting channel 1' in e:
-    ...     print('Pipetting channel 1 error: ', e['Pipetting channel 1'], e.error_code)
-    Pipetting channel 1 error:  NoTipError('Tip already picked up'), '08/76'
-  """
-
-  def __init__(self, errors: Dict[str, STARModuleError], raw_response: Optional[str] = None):
-    self.raw_response = raw_response
+class STARFirmwareError(Exception):
+  def __init__(self, errors: Dict[str, STARModuleError], raw_response: str):
     self.errors = errors
-
-  def __str__(self) -> str:
-    return f"STARFirmwareError(errors={self.errors}, raw_response={self.raw_response})"
-
-  def __repr__(self) -> str:
-    return str(self)
-
-  def __len__(self) -> int:
-    return len(self.errors)
-
-  def __getitem__(self, key: str):
-    return self.errors[key]
-
-  def __setitem__(self, key: str, value: STARModuleError):
-    self.errors[key] = value
-
-  def __contains__(self, key: str) -> bool:
-    return key in self.errors
-
-  def items(self) -> ItemsView[str, STARModuleError]:
-    return self.errors.items()
-
-  def error_for_channel(self, channel: int) -> Optional[STARModuleError]:
-    """ Return the error for a given channel.
-
-    .. warning::
-      Channel here is 1-indexed, like the firmware API, but STAR uses 0-indexed channels.
-    """
-
-    return self.errors.get(f"Pipetting channel {channel}")
+    self.raw_response = raw_response
+    super().__init__(f"{errors}, {raw_response}")
 
 
 def star_firmware_string_to_error(
   error_code_dict: Dict[str, str],
-  raw_response: Optional[str] = None,
+  raw_response: str,
 ) -> STARFirmwareError:
   """ Convert a firmware string to a STARFirmwareError. """
 
@@ -1019,6 +978,9 @@ def star_firmware_string_to_error(
       if error_code == 0: # No error
         continue
       error_class = error_code_to_exception(error_code)
+    elif module_id == "I0" and error == "36":
+      error_class = StopError
+      trace_information = int(error)
     else:
       # Slave modules: er## (just trace information)
       error_class = UnknownHamiltonError
@@ -1035,6 +997,45 @@ def star_firmware_string_to_error(
     errors.pop("Master")
 
   return STARFirmwareError(errors=errors, raw_response=raw_response)
+
+
+def convert_star_module_error_to_plr_error(error: STARModuleError) -> Optional[Exception]:
+  """ Convert an error returned by a specific STAR module to a Hamilton error. """
+  # TipAlreadyFittedError -> HasTipError
+  if isinstance(error, TipAlreadyFittedError):
+    return HasTipError()
+
+  # HamiltonNoTipError -> NoTipError
+  if isinstance(error, HamiltonNoTipError):
+    return NoTipError(error.message)
+
+  if error.trace_information == 75:
+    return NoTipError(error.message)
+
+  if error.trace_information in {70, 71}:
+    return TooLittleLiquidError(error.message)
+
+  if error.trace_information in {54}:
+    return TooLittleVolumeError(error.message)
+
+  return None
+
+
+def convert_star_firmware_error_to_plr_error(error: STARFirmwareError) -> Optional[Exception]:
+  """ Check if a STARFirmwareError can be converted to a native PLR error. If so, return it, else
+  return `None`. """
+
+  # if all errors are channel errors, return a ChannelizedError
+  if all(e.startswith("Pipetting channel ") for e in error.errors):
+    def _channel_to_int(channel: str) -> int:
+      return int(channel.split(" ")[-1]) - 1 # star is 1-indexed, plr is 0-indexed
+    errors = {
+      _channel_to_int(module_name): convert_star_module_error_to_plr_error(error) or error
+      for module_name, error in error.errors.items()
+    }
+    return ChannelizedError(errors=errors, raw_response=error.raw_response)
+
+  return None
 
 
 def _dispensing_mode_for_op(empty: bool, jet: bool, blow_out: bool) -> int:
@@ -1183,7 +1184,7 @@ class STAR(HamiltonLiquidHandler):
       he = star_firmware_string_to_error(error_code_dict=errors_dict, raw_response=resp)
 
       # If there is a faulty parameter error, request which parameter that is.
-      for module_name, error in he.items():
+      for module_name, error in he.errors.items():
         if error.message == "Unknown parameter":
           # temp. disabled until we figure out how to handle async in parse response (the
           # background thread does not have an event loop, and I'm not sure if it should.)
@@ -1191,7 +1192,8 @@ class STAR(HamiltonLiquidHandler):
           # he[module_name].message += f" ({vp})" # pylint: disable=unnecessary-dict-index-lookup
 
           # pylint: disable=unnecessary-dict-index-lookup
-          he[module_name].message += " (call lh.backend.request_name_of_last_faulty_parameter)"
+          he.errors[module_name].message += \
+            " (call lh.backend.request_name_of_last_faulty_parameter)"
 
       raise he
 
@@ -1261,7 +1263,6 @@ class STAR(HamiltonLiquidHandler):
 
       await self.park_iswap(minimum_traverse_height_at_beginning_of_a_command=
                             int(self._traversal_height * 10))
-      self._iswap_parked = True
 
     if self.core96_head_installed:
       core96_head_initialized = await self.request_core_96_head_initialization_status()
@@ -1275,7 +1276,6 @@ class STAR(HamiltonLiquidHandler):
 
   # ============== LiquidHandlerBackend methods ==============
 
-  @need_iswap_parked
   async def pick_up_tips(
     self,
     ops: List[Pickup],
@@ -1315,26 +1315,10 @@ class STAR(HamiltonLiquidHandler):
         pickup_method=tip.pickup_method,
       )
     except STARFirmwareError as e:
-      tip_already_fitted_errors: List[int] = []
-      no_tip_present_errors: List[int] = []
-      for i in range(1, self.num_channels+1):
-        channel_error = e.error_for_channel(i)
-        if channel_error is None:
-          continue
-        if isinstance(channel_error, TipAlreadyFittedError):
-          tip_already_fitted_errors.append(i-1)
-        elif channel_error.trace_information in [75]:
-          no_tip_present_errors.append(i-1)
-      if len(tip_already_fitted_errors) > 0:
-        raise HasTipError(f"Tip already fitted on channels {tip_already_fitted_errors}") \
-          from e
-      elif len(no_tip_present_errors) > 0:
-        raise NoTipError("No tip present in locations for channels "
-                                  f"{no_tip_present_errors}") from e
-
+      if plr_e := convert_star_firmware_error_to_plr_error(e):
+        raise plr_e from e
       raise e
 
-  @need_iswap_parked
   async def drop_tips(
     self,
     ops: List[Drop],
@@ -1383,15 +1367,8 @@ class STAR(HamiltonLiquidHandler):
         discarding_method=drop_method
       )
     except STARFirmwareError as e:
-      tip_errors: List[int] = []
-      for i in range(1, self.num_channels+1):
-        channel_error = e.error_for_channel(i)
-        if isinstance(channel_error, HamiltonNoTipError):
-          tip_errors.append(i-1)
-
-      if len(tip_errors) > 0:
-        raise NoTipError(f"No tip present on channels {tip_errors}") from e
-
+      if plr_e := convert_star_firmware_error_to_plr_error(e):
+        raise plr_e from e
       raise e
 
   def _assert_valid_resources(self, resources: Sequence[Resource]) -> None:
@@ -1410,7 +1387,6 @@ class STAR(HamiltonLiquidHandler):
     DUAL = 3
     Z_TOUCH_OFF = 4
 
-  @need_iswap_parked
   async def aspirate(
     self,
     ops: List[Aspiration],
@@ -1681,27 +1657,10 @@ class STAR(HamiltonLiquidHandler):
         min_z_endpos=min_z_endpos or int(self._traversal_height * 10),
       )
     except STARFirmwareError as e:
-      tll: List[int] = []
-      tlv: List[int] = []
-      for i in range(1, self.num_channels+1):
-        channel_error = e.error_for_channel(i)
-        if channel_error is None:
-          continue
-        if channel_error.trace_information in [70, 71]: # too little / no liquid
-          tll.append(i-1)
-        elif channel_error.trace_information in [54]: # "Position out of permitted area" = too much
-          tlv.append(i-1)
-
-      if len(tll) > 0:
-        raise TooLittleLiquidError(f"There is not enough liquid in containers where the "
-                                      f"following channels were trying to aspirate: {tll}") from e
-      if len(tlv) > 0:
-        raise TooLittleVolumeError(f"There is too much liquid in the following channels: {tlv}") \
-          from e
-
+      if plr_e := convert_star_firmware_error_to_plr_error(e):
+        raise plr_e from e
       raise e
 
-  @need_iswap_parked
   async def dispense(
     self,
     ops: List[Dispense],
@@ -1929,24 +1888,12 @@ class STAR(HamiltonLiquidHandler):
         side_touch_off_distance=side_touch_off_distance,
       )
     except STARFirmwareError as e:
-      tll: List[int] = []
-      for i in range(1, self.num_channels+1):
-        channel_error = e.error_for_channel(i)
-        if channel_error is None:
-          continue
-        if channel_error.trace_information in [54]: # "Position out of permitted area" = too little
-          tll.append(i-1)
-
-      if len(tll) > 0:
-        raise \
-          TooLittleVolumeError(f"There is not enough liquid in the following channels: {tll}") \
-          from e
-
+      if plr_e := convert_star_firmware_error_to_plr_error(e):
+        raise plr_e from e
       raise e
 
     return ret
 
-  @need_iswap_parked
   async def pick_up_tips96(
     self,
     pickup: PickupTipRack,
@@ -1976,7 +1923,6 @@ class STAR(HamiltonLiquidHandler):
       minimum_height_command_end=minimum_height_command_end or int(self._traversal_height * 10),
     )
 
-  @need_iswap_parked
   async def drop_tips96(
     self,
     drop: DropTipRack,
@@ -2003,7 +1949,6 @@ class STAR(HamiltonLiquidHandler):
       minimum_height_command_end=minimum_height_command_end or int(self._traversal_height * 10),
     )
 
-  @need_iswap_parked
   async def aspirate96(
     self,
     aspiration: AspirationPlate,
@@ -2190,7 +2135,6 @@ class STAR(HamiltonLiquidHandler):
       recording_mode=0,
     )
 
-  @need_iswap_parked
   async def dispense96(
     self,
     dispense: DispensePlate,
@@ -2395,7 +2339,6 @@ class STAR(HamiltonLiquidHandler):
     """
 
     assert self.iswap_installed, "iswap must be installed"
-    print(minimum_traverse_height_at_beginning_of_a_command, z_position_at_the_command_end)
 
     # Get center of source plate. Also gripping height and plate width.
     center = resource.get_absolute_location() + resource.center() + offset
@@ -3497,6 +3440,7 @@ class STAR(HamiltonLiquidHandler):
 
   # -------------- 3.5.2 Tip handling commands using PIP --------------
 
+  @need_iswap_parked
   async def pick_up_tip(
     self,
     x_positions: List[int],
@@ -3549,6 +3493,7 @@ class STAR(HamiltonLiquidHandler):
       td=pickup_method.value,
     )
 
+  @need_iswap_parked
   async def discard_tip(
     self,
     x_positions: List[int],
@@ -3615,6 +3560,7 @@ class STAR(HamiltonLiquidHandler):
 
   # TODO:(command:DC) Set multiple dispense values using PIP
 
+  @need_iswap_parked
   async def aspirate_pip(
     self,
     aspiration_type: List[int] = [0],
@@ -3876,6 +3822,7 @@ class STAR(HamiltonLiquidHandler):
       in_=[f"{in_:04}" for in_ in immersion_depth_2nd_section],
     )
 
+  @need_iswap_parked
   async def dispense_pip(
     self,
     tip_pattern: List[bool],
@@ -4091,6 +4038,7 @@ class STAR(HamiltonLiquidHandler):
 
   # -------------- 3.5.5 CoRe gripper commands --------------
 
+  @need_iswap_parked
   async def get_core(self, p1: int, p2: int):
     """ Get CoRe gripper tool from wasteblock mount. """
     if not 0 <= p1 < self.num_channels:
@@ -4115,6 +4063,7 @@ class STAR(HamiltonLiquidHandler):
     self._core_parked = False
     return command_output
 
+  @need_iswap_parked
   async def put_core(self):
     """ Put CoRe gripper tool at wasteblock mount. """
     command_output = await self.send_command(
@@ -4274,6 +4223,7 @@ class STAR(HamiltonLiquidHandler):
       command="ZO")
     return command_output
 
+  @need_iswap_parked
   async def core_get_plate(
     self,
     x_position: int = 0,
@@ -4322,6 +4272,7 @@ class STAR(HamiltonLiquidHandler):
 
     return command_output
 
+  @need_iswap_parked
   async def core_put_plate(
     self,
     x_position: int = 0,
@@ -4368,6 +4319,7 @@ class STAR(HamiltonLiquidHandler):
 
     return command_output
 
+  @need_iswap_parked
   async def core_move_plate_to_position(
     self,
     x_position: int = 0,
@@ -4393,6 +4345,106 @@ class STAR(HamiltonLiquidHandler):
     )
 
     return command_output
+
+  async def core_check_resource_exists_at_location_center(
+    self,
+    location: Coordinate,
+    resource: Resource,
+    gripper_y_margin: float = 5,
+    offset: Coordinate = Coordinate.zero(),
+    minimum_traverse_height_at_beginning_of_a_command: int = 2750,
+    z_position_at_the_command_end: int = 2750,
+    enable_recovery: bool = True,
+    audio_feedback: bool = True
+  ) -> bool:
+    """ Check existence of resource with CoRe gripper tool
+      a "Get plate using CO-RE gripper" + error handling
+      Which channels are used for resource check is dependent on which channels have been used for
+      `STAR.get_core(p1: int, p2: int)` which is a prerequisite for this check function.
+
+      Args:
+        location: Location to check for resource
+        resource: Resource to check for.
+        gripper_y_margin = Distance between the front / back wall of the resource
+          and the grippers during "bumping" / checking
+        offset: Offset from resource position in mm.
+        minimum_traverse_height_at_beginning_of_a_command: Minimum traverse height at beginning of
+          a command [0.1mm] (refers to all channels independent of tip pattern parameter 'tm').
+          Must be between 0 and 3600. Default 3600.
+        z_position_at_the_command_end: Minimum z-Position at end of a command [0.1 mm] (refers to
+          all channels independent of tip pattern parameter 'tm'). Must be between 0 and 3600.
+          Default 3600.
+        enable_recovery: if True will ask for user input if resource was not found
+        audio_feedback: enable controlling computer to emit different sounds when
+          finding/not finding the resource
+
+      Returns:
+        bool: True if resource was found, False if resource was not found
+      """
+
+    center = location + resource.centers()[0] + offset
+    y_width_to_gripper_bump = resource.get_size_y() - gripper_y_margin*2
+    assert 9 <= y_width_to_gripper_bump <= int(resource.get_size_y()), \
+      f"width between channels must be between 9 and {resource.get_size_y()} mm" \
+      " (i.e. the minimal distance between channels and the max y size of the resource"
+
+    # Check if CoRe gripper currently in use
+    cores_used = not self._core_parked
+    if not cores_used:
+      raise ValueError("CoRe grippers not yet picked up.")
+
+    # Enable recovery of failed checks
+    resource_found = False
+    try_counter = 0
+    while not resource_found:
+      try:
+        await self.core_get_plate(
+          x_position=int(center.x * 10),
+          y_position=int(center.y * 10),
+          z_position=int(center.z * 10),
+          open_gripper_position=int(y_width_to_gripper_bump * 10),
+          plate_width=int(y_width_to_gripper_bump * 10),
+          # Set default values based on VENUS check_plate commands
+          y_gripping_speed=50,
+          x_direction=0,
+          z_speed=600,
+          grip_strength = 20,
+          # Enable mods of channel z position for check acceleration
+          minimum_traverse_height_at_beginning_of_a_command = \
+            minimum_traverse_height_at_beginning_of_a_command,
+          minimum_z_position_at_the_command_end = z_position_at_the_command_end,
+        )
+      except STARFirmwareError as exc:
+        for module_error in exc.errors.values():
+          if module_error.trace_information == 62:
+            resource_found = True
+          else:
+            raise ValueError(f"Unexpected error encountered: {exc}") from exc
+      else:
+        if audio_feedback:
+          audio.play_not_found()
+        if enable_recovery:
+          print(f"\nWARNING: Resource '{resource.name}' not found at center" \
+                f" location {(center.x, center.y, center.z)} during check no {try_counter}.")
+          user_prompt = input("Have you checked resource is present?" \
+                              "\n [ yes ] -> machine will check location again" \
+                              "\n [ abort ] -> machine will abort run\n Answer:"
+                              )
+          if user_prompt == "yes":
+            try_counter += 1
+          elif user_prompt == "abort":
+            raise ValueError(f"Resource '{resource.name}' not found at center" \
+                              f" location {(center.x,center.y,center.z)}" \
+                              " & error not resolved -> aborted resource movement.")
+        else:
+          # Resource was not found
+          return False
+
+    # Resource was found
+    if audio_feedback:
+      audio.play_got_item()
+    return True
+
 
   # TODO:(command:ZB)
 
@@ -4801,6 +4853,7 @@ class STAR(HamiltonLiquidHandler):
 
   # -------------- 3.10.2 Tip handling using CoRe 96 Head --------------
 
+  @need_iswap_parked
   async def pick_up_tips_core96(
     self,
     x_position: int,
@@ -4850,6 +4903,7 @@ class STAR(HamiltonLiquidHandler):
       ze=f"{minimum_height_command_end:04}",
     )
 
+  @need_iswap_parked
   async def discard_tips_core96(
     self,
     x_position: int,
@@ -4897,6 +4951,7 @@ class STAR(HamiltonLiquidHandler):
 
   # -------------- 3.10.3 Liquid handling using CoRe 96 Head --------------
 
+  @need_iswap_parked
   async def aspirate_core_96(
     self,
     aspiration_type: int = 0,
@@ -5076,6 +5131,7 @@ class STAR(HamiltonLiquidHandler):
       cx=recording_mode,
     )
 
+  @need_iswap_parked
   async def dispense_core_96(
     self,
     dispensing_mode: int = 0,
