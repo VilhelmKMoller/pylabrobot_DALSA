@@ -57,8 +57,8 @@ def MFX_CAR_DTU(name: str) -> MFXCarrier:
     size_y=497.0,
     size_z=130.0, # original 18.195
     sites=create_homogeneous_carrier_sites([
-        Coordinate(x=6.3, y=10.2, z=132.0),   # Site.3.(X,Y,Z) original z=77.0
-        Coordinate(x=6.3, y=106.2, z=132.0),  # Site.2.(X,Y,Z) original z=77.0
+        Coordinate(x=6.3, y=10.2, z=131.0),   # Site.3.(X,Y,Z) original z=77.0
+        Coordinate(x=6.3, y=106.2, z=131.0),  # Site.2.(X,Y,Z) original z=77.0
         Coordinate(x=6.3, y=202.2, z=114.7), # Site.1.(X,Y,Z)
         Coordinate(x=6.3, y=298.2, z=114.7), # Site.5.(X,Y,Z)
         Coordinate(x=6.3, y=394.2, z=114.7), # Site.4.(X,Y,Z)
