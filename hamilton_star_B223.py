@@ -133,6 +133,6 @@ def COOLER(name: str) -> TubeCarrier:
     model="COOLER"
   )
 
-# Reagent reservar 3:
+# Reagent reservoir 3:
 name = "my_SMP_CAR_24_A00"
 # Dim.Dx22.5Dim.Dy497Dim.Dz140
