@@ -1,0 +1,56 @@
+{
+  "$otSharedSchema": "#/pipette/schemas/2/pipettePropertiesSchema.json",
+  "displayName": "P20 Single-Channel GEN2",
+  "model": "p20",
+  "displayCategory": "GEN2",
+  "pickUpTipConfigurations": {
+    "pressFit": {
+      "speedByTipCount": {
+        "1": 10.0
+      },
+      "presses": 1,
+      "increment": 0.0,
+      "distanceByTipCount": {
+        "1": 14.0
+      },
+      "currentByTipCount": {
+        "1": 0.1
+      }
+    }
+  },
+  "dropTipConfigurations": {
+    "plungerEject": {
+      "current": 1.0,
+      "speed": 15.0
+    }
+  },
+  "plungerMotorConfigurations": {
+    "idle": 0.3,
+    "run": 1.0
+  },
+  "plungerPositionsConfigurations": {
+    "default": {
+      "top": 19.5,
+      "bottom": -8.5,
+      "blowout": -13.0,
+      "drop": -27.0
+    }
+  },
+  "availableSensors": {
+    "sensors": []
+  },
+  "partialTipConfigurations": {
+    "partialTipSupported": false,
+    "availableConfigurations": null
+  },
+  "channels": 1,
+  "shaftDiameter": 1.0,
+  "shaftULperMM": 0.785,
+  "backCompatNames": ["p10_single"],
+  "backlashDistance": 0.0,
+  "quirks": [],
+  "plungerHomingConfigurations": {
+    "current": 1.0,
+    "speed": 30
+  }
+}
