@@ -10,7 +10,7 @@ from pylabrobot.resources import Resource, STARDeck, STARLetDeck, OTDeck, Deck
 
 print("!" * 80)
 print("I am not sure if the GUI still works. If you are interested in using this, please get in "
-      "touch on forums.pylabrobot.org")
+      "touch on discuss.pylabrobot.org")
 print("!" * 80)
 
 app = Flask(__name__, template_folder=".", static_folder=".")
@@ -64,9 +64,9 @@ def list_resources():
       "Cos_96_DW_500ul",
       "Cos_96_DW_500ul_L",
       "Cos_96_DW_500ul_P",
-      "Cos_96_EZWash",
-      "Cos_96_EZWash_L",
-      "Cos_96_EZWash_P",
+      "Cor_96_wellplate_360ul_Fb",
+      "Cor_96_wellplate_360ul_Fb_L",
+      "Cor_96_wellplate_360ul_Fb_P",
       "Cos_96_FL",
       "Cos_96_Filter",
       "Cos_96_Filter_L",

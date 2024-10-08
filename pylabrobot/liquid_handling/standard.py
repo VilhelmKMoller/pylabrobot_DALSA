@@ -14,44 +14,36 @@ if TYPE_CHECKING:
   from pylabrobot.resources.tip_rack import TipSpot
 
 
-@dataclass
+@dataclass(frozen=True)
 class Pickup:
-  """ A pickup operation. """
   resource: TipSpot
-  offset: Optional[Coordinate]
+  offset: Coordinate
   tip: Tip # TODO: perhaps we can remove this, because the tip spot has the tip?
 
 
-@dataclass
+@dataclass(frozen=True)
 class Drop:
-  """ A drop operation. """
   resource: Resource
-  offset: Optional[Coordinate]
+  offset: Coordinate
   tip: Tip
 
 
-@dataclass
+@dataclass(frozen=True)
 class PickupTipRack:
-  """ A pickup operation for an entire tip rack. """
-
   resource: TipRack
-  offset: Optional[Coordinate]
+  offset: Coordinate
 
 
-@dataclass
+@dataclass(frozen=True)
 class DropTipRack:
-  """ A drop operation for an entire tip rack. """
-
   resource: Union[TipRack, Trash]
-  offset: Optional[Coordinate]
+  offset: Coordinate
 
 
-@dataclass
+@dataclass(frozen=True)
 class Aspiration:
-  """ Aspiration contains information about an aspiration. """
-
   resource: Container
-  offset: Optional[Coordinate]
+  offset: Coordinate
   tip: Tip
   volume: float
   flow_rate: Optional[float]
@@ -60,12 +52,10 @@ class Aspiration:
   liquids: List[Tuple[Optional[Liquid], float]]
 
 
-@dataclass
+@dataclass(frozen=True)
 class Dispense:
-  """ Dispense contains information about an dispense. """
-
   resource: Container
-  offset: Optional[Coordinate]
+  offset: Coordinate
   tip: Tip
   volume: float
   flow_rate: Optional[float]
@@ -74,12 +64,10 @@ class Dispense:
   liquids: List[Tuple[Optional[Liquid], float]]
 
 
-@dataclass
+@dataclass(frozen=True)
 class AspirationPlate:
-  """ Contains information about an aspiration from a plate (in a single movement). """
-
   wells: List[Well]
-  offset: Optional[Coordinate]
+  offset: Coordinate
   tips: List[Tip]
   volume: float
   flow_rate: Optional[float]
@@ -88,12 +76,33 @@ class AspirationPlate:
   liquids: List[List[Tuple[Optional[Liquid], float]]]
 
 
-@dataclass
+@dataclass(frozen=True)
 class DispensePlate:
-  """ Contains information about an aspiration from a plate (in a single movement). """
-
   wells: List[Well]
-  offset: Optional[Coordinate]
+  offset: Coordinate
+  tips: List[Tip]
+  volume: float
+  flow_rate: Optional[float]
+  liquid_height: Optional[float]
+  blow_out_air_volume: Optional[float]
+  liquids: List[List[Tuple[Optional[Liquid], float]]]
+
+@dataclass(frozen=True)
+class AspirationContainer:
+  container: Container
+  offset: Coordinate
+  tips: List[Tip]
+  volume: float
+  flow_rate: Optional[float]
+  liquid_height: Optional[float]
+  blow_out_air_volume: Optional[float]
+  liquids: List[List[Tuple[Optional[Liquid], float]]]
+
+
+@dataclass(frozen=True)
+class DispenseContainer:
+  container: Container
+  offset: Coordinate
   tips: List[Tip]
   volume: float
   flow_rate: Optional[float]
@@ -103,17 +112,15 @@ class DispensePlate:
 
 
 class GripDirection(enum.Enum):
-  """ A direction from which to grab the resource. """
   FRONT = enum.auto()
   BACK = enum.auto()
   LEFT = enum.auto()
   RIGHT = enum.auto()
 
 
-@dataclass
+@dataclass(frozen=True)
 class Move:
-  """ A move operation.
-
+  """
   Attributes:
     resource: The resource to move.
     destination: The destination of the move.
@@ -143,19 +150,21 @@ class Move:
         (GripDirection.BACK, GripDirection.LEFT),
         (GripDirection.LEFT, GripDirection.FRONT),
     ):
-      return 270
+      return 90
     if (self.get_direction, self.put_direction) in (
         (GripDirection.FRONT, GripDirection.BACK),
+        (GripDirection.BACK, GripDirection.FRONT),
         (GripDirection.LEFT, GripDirection.RIGHT),
+        (GripDirection.RIGHT, GripDirection.LEFT),
     ):
       return 180
-    if (self.put_direction, self.get_direction) in (
-        (GripDirection.FRONT, GripDirection.RIGHT),
-        (GripDirection.RIGHT, GripDirection.BACK),
-        (GripDirection.BACK, GripDirection.LEFT),
-        (GripDirection.LEFT, GripDirection.FRONT),
+    if (self.get_direction, self.put_direction) in (
+        (GripDirection.RIGHT, GripDirection.FRONT),
+        (GripDirection.BACK, GripDirection.RIGHT),
+        (GripDirection.LEFT, GripDirection.BACK),
+        (GripDirection.FRONT, GripDirection.LEFT),
     ):
-      return 90
+      return 270
     raise ValueError(f"Invalid grip directions: {self.get_direction}, {self.put_direction}")
 
 PipettingOp = Union[Pickup, Drop, Aspiration, Dispense]

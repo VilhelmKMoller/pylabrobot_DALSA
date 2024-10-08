@@ -18,8 +18,8 @@ class Coordinate:
     self.y = round(self.y, 4)
     self.z = round(self.z, 4)
 
-  @classmethod
-  def zero(cls) -> Coordinate:
+  @staticmethod
+  def zero() -> Coordinate:
     return Coordinate(0, 0, 0)
 
   def __add__(self, other) -> Coordinate:
@@ -43,3 +43,6 @@ class Coordinate:
 
   def __neg__(self) -> Coordinate:
     return Coordinate(-self.x, -self.y, -self.z)
+
+  def vector(self) -> list[float]:
+    return [self.x, self.y, self.z]

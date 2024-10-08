@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Optional, Sequence, Union, cast
-from pylabrobot.machine import Machine, need_setup_finished
+from pylabrobot.machines.machine import Machine, need_setup_finished
 from .backend import PowderDispenserBackend, PowderDispense
 from pylabrobot.resources import Resource, Powder
 
@@ -80,7 +80,3 @@ class PowderDispenser(Machine):
     result = await self.backend.dispense(powder_dispenses, **backend_kwargs)
 
     return cast(List[Dict[str, Any]], result)
-
-  async def setup(self):
-    """ Setup the powder dispenser. This method should be called before any dispensing actions. """
-    await super().setup()

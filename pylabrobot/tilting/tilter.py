@@ -4,11 +4,11 @@ from typing import List, Optional
 from pylabrobot.machines import Machine
 from pylabrobot.resources import Coordinate, Plate
 from pylabrobot.resources.well import CrossSectionType, Well
-
+from pylabrobot.resources.resource_holder import ResourceHolderMixin
 from .tilter_backend import TilterBackend
 
 
-class Tilter(Machine):
+class Tilter(ResourceHolderMixin, Machine):
   """ Resources that tilt plates. """
 
   def __init__(
@@ -137,7 +137,7 @@ class Tilter(Machine):
       assert well.cross_section_type == CrossSectionType.CIRCLE, \
           "Wells must have circular cross-section"
 
-      diameter = well.get_size_x() # assuming circular well
+      diameter = well.get_absolute_size_x() # assuming circular well
       radius = diameter / 2
 
       if n_tips > 1:

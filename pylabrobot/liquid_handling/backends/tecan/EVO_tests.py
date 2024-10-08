@@ -6,7 +6,6 @@ from pylabrobot.liquid_handling import LiquidHandler
 from pylabrobot.liquid_handling.backends.tecan.EVO import EVO, LiHa, RoMa
 from pylabrobot.liquid_handling.standard import (
   Pickup,
-  # Drop,
   Aspiration,
   Dispense,
   Move,
@@ -70,7 +69,7 @@ class EVOTests(unittest.IsolatedAsyncioTestCase):
   async def test_pick_up_tip(self):
     op = Pickup(
       resource=self.tr.get_item("A1"),
-      offset=None,
+      offset=Coordinate.zero(),
       tip=self.tr.get_tip("A1")
     )
     await self.evo.pick_up_tips([op], use_channels=[0])
@@ -99,7 +98,7 @@ class EVOTests(unittest.IsolatedAsyncioTestCase):
   async def test_aspirate(self):
     op = Aspiration(
       resource=self.plate.get_item("A1"),
-      offset=None,
+      offset=Coordinate.zero(),
       tip=self.tr.get_tip("A1"),
       volume=100,
       flow_rate=100,
@@ -123,11 +122,11 @@ class EVOTests(unittest.IsolatedAsyncioTestCase):
       call(module="C5", command="SML", params=[985, 2000, 2000, 2000, 2000, 2000, 2000, 2000]),
       call(module="C5", command="SBL", params=[20, None, None, None, None, None, None, None]),
       call(module="C5", command="SHZ", params=[1455, 1455, 1455, 1455, 1455, 1455, 1455, 1455]),
-      call(module="C5", command="MDT", params=[1, None, None, None, 31, 0, 0, 0, 0, 0, 0, 0]),
+      call(module="C5", command="MDT", params=[1, None, None, None, 30, 0, 0, 0, 0, 0, 0, 0]),
       call(module="C5", command="SHZ", params=[2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000]),
       call(module="C5", command="SSZ", params=[30, None, None, None, None, None, None, None]),
       call(module="C5", command="SEP", params=[1200, None, None, None, None, None, None, None]),
-      call(module="C5", command="STZ", params=[-31, None, None, None, None, None, None, None]),
+      call(module="C5", command="STZ", params=[-30, None, None, None, None, None, None, None]),
       call(module="C5", command="MTR", params=[626, None, None, None, None, None, None, None]),
       call(module="C5", command="SSZ", params=[200, None, None, None, None, None, None, None]),
       call(module="C5", command="MAZ", params=[1375, None, None, None, None, None, None, None]),
@@ -139,7 +138,7 @@ class EVOTests(unittest.IsolatedAsyncioTestCase):
   async def test_dispense(self):
     op = Dispense(
       resource=self.plate.get_item("A1"),
-      offset=None,
+      offset=Coordinate.zero(),
       tip=self.tr.get_tip("A1"),
       volume=100,
       flow_rate=100,

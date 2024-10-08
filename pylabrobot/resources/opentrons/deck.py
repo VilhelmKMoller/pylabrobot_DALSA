@@ -19,7 +19,7 @@ class OTDeck(Deck):
 
     self.slots: List[Optional[Resource]] = [None] * 12
 
-    self.slot_locations = [
+    self.slot_locations=[
       Coordinate(x=0.0,   y=0.0,   z=0.0),
       Coordinate(x=132.5, y=0.0,   z=0.0),
       Coordinate(x=265.0, y=0.0,   z=0.0),
@@ -150,7 +150,7 @@ class OTDeck(Deck):
       return name.ljust(length)
 
     summary_ = f"""
-      Deck: {self.get_size_x()}mm x {self.get_size_y()}mm
+      Deck: {self.get_absolute_size_x()}mm x {self.get_absolute_size_y()}mm
 
       +-----------------+-----------------+-----------------+
       |                 |                 |                 |
