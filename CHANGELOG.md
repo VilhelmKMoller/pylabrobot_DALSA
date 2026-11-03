@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Tecan Carousel (`pylabrobot.tecan.TecanCarousel`), a Liconic-manufactured plate hotel: status reads, positioning, and plate handling between cartridge levels and the transfer station (`ST 1904`, `ST 1905`-`ST 1909`) over the StoreX ASCII remote-operation command set, with a hello-world notebook. Status reads, export, soft reset and shovel placement are verified on one Tecan Carousel LPT220 EVO unit; the remaining handling commands follow the command reference and are untested.
 - BMG Labtech VANTAstar plate reader (`pylabrobot.bmg_labtech.vantastar`): USB driver for absorbance (endpoint, spectra), top fluorescence intensity (endpoint, excitation and emission spectra) with automatic gain and focus and z-profiles, orbital and spiral well scanning, shaking and the incubator, and the reader's estimate of a read's run time, tested on one reader (firmware 1.12), and a luminescence read not tested on a reader with luminescence.
 - LI-COR Odyssey Classic (model 9120) infrared imaging system at `pylabrobot.li_cor.odyssey`
 - `StackerRetrieval` capability (`pylabrobot.capabilities.automated_retrieval.StackerRetrieval`) for sequential ("stacking access") plate storage: one or more single-ended LIFO `ResourceStack` stacks plus a loading tray, with `downstack`/`upstack` operations and a `StackerBackend` interface (plus `StackerChatterboxBackend`). Intended for devices like the Agilent BenchCel and HighRes MicroServe (#1113).
