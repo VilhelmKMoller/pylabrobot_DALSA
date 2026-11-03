@@ -278,21 +278,26 @@ class HandlingTests(unittest.IsolatedAsyncioTestCase):
     self.assertFalse([write for write in io.writes if b"DM5" in write])
 
   def test_level_for_slot_maps_a_standard_cassette_one_to_one(self):
-    """A 22-slot standard cassette addresses its slots as controller levels 1..22."""
+    """A 22-slot standard cassette counts downward from the top: slot 1 is controller level 1."""
     device, _ = make_device([])
     self.assertEqual([device.level_for_slot(2, slot) for slot in (1, 7, 22)], [1, 7, 22])
     self.assertEqual([device.slot_for_level(2, level) for level in (1, 7, 22)], [1, 7, 22])
 
   def test_level_for_slot_maps_a_deep_well_cassette_three_levels_per_slot(self):
-    """Measured on hardware: a 7-slot deep-well cassette steps three controller levels per slot."""
+    """Measured on hardware: a 7-slot deep-well cassette steps three controller levels per slot.
+
+    Its controller level 1 is the bottommost slot, so counting slots from the top reverses the
+    level order: top slot 1 sits at level 19 and bottom slot 7 at level 1.
+    """
     device, _ = make_device([])
     device.cassette_slots[1] = 7
     device.cassette_level_step[1] = 3
+    device.cassette_levels_increase_downward[1] = False
     self.assertEqual(
-      [device.level_for_slot(1, slot) for slot in range(1, 8)], [1, 4, 7, 10, 13, 16, 19]
+      [device.level_for_slot(1, slot) for slot in range(1, 8)], [19, 16, 13, 10, 7, 4, 1]
     )
     self.assertEqual(
-      [device.slot_for_level(1, level) for level in (1, 4, 7, 10, 13, 16, 19)],
+      [device.slot_for_level(1, level) for level in (19, 16, 13, 10, 7, 4, 1)],
       [1, 2, 3, 4, 5, 6, 7],
     )
 

@@ -107,6 +107,7 @@ class TecanCarousel:
     levels_per_cartridge: int = 22,
     cassette_slots: Optional[Mapping[int, int]] = None,
     cassette_level_step: Optional[Mapping[int, int]] = None,
+    cassette_levels_increase_downward: Optional[Mapping[int, bool]] = None,
   ) -> None:
     """Configure an explicit operator-selected serial port without opening it.
 
@@ -131,6 +132,13 @@ class TecanCarousel:
     }
     self.cassette_level_step: dict[int, int] = {
       cartridge: (cassette_level_step or {}).get(cartridge, 1)
+      for cartridge in range(1, number_of_cartridges + 1)
+    }
+    # True means the controller's level 1 is the topmost slot (standard cassette);
+    # False means level 1 is the bottommost slot (deep-well cassette on this unit).
+    # Positions in the public API always count from the top either way.
+    self.cassette_levels_increase_downward: dict[int, bool] = {
+      cartridge: (cassette_levels_increase_downward or {}).get(cartridge, True)
       for cartridge in range(1, number_of_cartridges + 1)
     }
     self.io = Serial(
@@ -264,15 +272,16 @@ class TecanCarousel:
   def level_for_slot(self, cartridge: int, slot: int) -> int:
     """Translate a physical slot number to the controller level that addresses it.
 
-    The controller counts *levels* along the lift stroke; how many levels a physical slot occupies
-    depends on the cassette's shelf pitch. A 22-slot standard cassette maps one level per slot. A
-    7-slot deep-well cassette on this unit maps three levels per slot, so its slots sit at levels
-    1, 4, 7, 10, 13, 16 and 19 — measured on hardware for slots 1, 3 and 7. Configure the step with
-    ``cassette_level_step`` when it differs.
+    Slots are counted from the **top** of the cassette: slot 1 is the topmost plate. The controller
+    counts *levels* along the lift stroke, and how its level numbering runs depends on the cassette
+    type. A standard 22-slot cassette counts downward from the top, so slot 1 sits at controller
+    level 1. A 7-slot deep-well cassette on this unit counts upward from the bottom, so its top slot
+    sits at the highest level and its bottom slot at level 1; three levels are used per slot. Set
+    ``cassette_levels_increase_downward`` to False for such a cartridge.
 
     Args:
       cartridge: controller cartridge address, 1-based.
-      slot: physical slot counted from the bottom of the cassette, 1-based.
+      slot: physical slot counted from the top of the cassette, 1-based.
 
     Returns:
       The controller level to pass to ``select_position`` and the handling methods.
@@ -285,7 +294,13 @@ class TecanCarousel:
     slots = self.cassette_slots[cartridge]
     if type(slot) is not int or not 1 <= slot <= slots:
       raise ValueError(f"level_for_slot: slot must be an integer in 1..{slots}, got {slot!r}")
-    level = 1 + (slot - 1) * self.cassette_level_step[cartridge]
+    step = self.cassette_level_step[cartridge]
+    if self.cassette_levels_increase_downward[cartridge]:
+      # Controller level 1 is the topmost slot: counting from the top runs with the level axis.
+      level = 1 + (slot - 1) * step
+    else:
+      # Controller level 1 is the bottommost slot: the topmost slot sits at the highest level.
+      level = 1 + (slots - 1) * step - (slot - 1) * step
     if level > self.levels_per_cartridge:
       raise ValueError(
         f"level_for_slot: slot {slot} maps to level {level}, beyond the configured "
@@ -296,26 +311,30 @@ class TecanCarousel:
   def slot_for_level(self, cartridge: int, level: int) -> int:
     """Translate a controller level to the physical slot it addresses.
 
-    The inverse of ``level_for_slot``. A level between two physical slots does not address a slot and
-    raises: the shelf pitch leaves gaps in the level axis.
+    The inverse of ``level_for_slot``, with slots counted from the top of the cassette. A level
+    between two physical slots does not address a slot and raises: the shelf pitch leaves gaps in
+    the level axis.
 
     Args:
       cartridge: controller cartridge address, 1-based.
-      level: controller level, 1-based from the bottom.
+      level: controller level, 1-based.
 
     Returns:
-      The physical slot counted from the bottom of the cassette, 1-based.
+      The physical slot counted from the top of the cassette, 1-based.
     """
     self._validate_position(cartridge, level, "slot_for_level")
     step = self.cassette_level_step[cartridge]
-    offset = level - 1
+    slots = self.cassette_slots[cartridge]
+    if self.cassette_levels_increase_downward[cartridge]:
+      offset = level - 1
+    else:
+      offset = 1 + (slots - 1) * step - level
     if offset % step:
       raise ValueError(
         f"slot_for_level: level {level} does not address a slot on cartridge {cartridge} "
         f"(levels step by {step})"
       )
     slot = offset // step + 1
-    slots = self.cassette_slots[cartridge]
     if slot > slots:
       raise ValueError(
         f"slot_for_level: level {level} maps to slot {slot}, beyond the {slots} installed slots"
