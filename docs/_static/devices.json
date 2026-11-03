@@ -1908,6 +1908,20 @@
     "oem": "https://www.sartorius.com/en/products/weighing/laboratory-balances/entris-ii"
   },
   {
+    "id": "tecan-carousel",
+    "vendor": "Tecan",
+    "name": "Carousel LPT220 EVO",
+    "kind": "storage",
+    "status": "wip",
+    "needs_hardware_testing": true,
+    "api": "pylabrobot.tecan.TecanCarousel",
+    "api_version": "v1",
+    "code_slug": "tecan/carousel.py",
+    "doc_slug": "tecan/carousel/hello-world",
+    "oem": "https://liconic.com/products/stx.php",
+    "notes": "Manufactured by Liconic. Status reads, export, soft reset and shovel placement observed on one LPT220 EVO unit; other handling commands follow the command reference but are unexercised. No barcode or Z-positioning API."
+  },
+  {
     "id": "tecan-evo",
     "vendor": "Tecan",
     "name": "EVO",
