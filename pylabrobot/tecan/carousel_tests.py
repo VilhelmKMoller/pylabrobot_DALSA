@@ -266,6 +266,92 @@ class StatusTests(unittest.IsolatedAsyncioTestCase):
 
 
 class HandlingTests(unittest.IsolatedAsyncioTestCase):
+  async def test_select_cartridge_rotates_without_touching_the_lift(self):
+    """Rotation writes DM0 only: DM5 is never read, written or validated."""
+    script = handshake() + [(b"RD 1812\r", b"0"), (b"RD DM0\r", b"00001"), (b"RD DM1\r", b"00000")]
+    script += [(b"WR DM0 3\r", b"OK"), (b"RD 1915\r", b"1")]
+    script += [(b"RD DM0\r", b"00003"), (b"RD DM1\r", b"00003")]
+    device, io = make_device(script)
+    await device.setup()
+    await device.select_cartridge(3)
+    self.assertEqual(io.expected, [])
+    self.assertFalse([write for write in io.writes if b"DM5" in write])
+
+  def test_level_for_slot_maps_a_standard_cassette_one_to_one(self):
+    """A 22-slot standard cassette addresses its slots as controller levels 1..22."""
+    device, _ = make_device([])
+    self.assertEqual([device.level_for_slot(2, slot) for slot in (1, 7, 22)], [1, 7, 22])
+    self.assertEqual([device.slot_for_level(2, level) for level in (1, 7, 22)], [1, 7, 22])
+
+  def test_level_for_slot_maps_a_deep_well_cassette_three_levels_per_slot(self):
+    """Measured on hardware: a 7-slot deep-well cassette steps three controller levels per slot."""
+    device, _ = make_device([])
+    device.cassette_slots[1] = 7
+    device.cassette_level_step[1] = 3
+    self.assertEqual(
+      [device.level_for_slot(1, slot) for slot in range(1, 8)], [1, 4, 7, 10, 13, 16, 19]
+    )
+    self.assertEqual(
+      [device.slot_for_level(1, level) for level in (1, 4, 7, 10, 13, 16, 19)],
+      [1, 2, 3, 4, 5, 6, 7],
+    )
+
+  def test_level_for_slot_rejects_slots_beyond_the_installed_cassette(self):
+    device, _ = make_device([])
+    device.cassette_slots[1] = 7
+    device.cassette_level_step[1] = 3
+    for slot in (0, 8, True, "1"):
+      with self.subTest(slot=slot):
+        with self.assertRaises(ValueError):
+          device.level_for_slot(1, slot)  # type: ignore[arg-type]
+
+  def test_slot_for_level_rejects_levels_between_physical_slots(self):
+    device, _ = make_device([])
+    device.cassette_slots[1] = 7
+    device.cassette_level_step[1] = 3
+    for level in (2, 3, 5, 20, 21, 22):
+      with self.subTest(level=level):
+        with self.assertRaises(ValueError):
+          device.slot_for_level(1, level)
+
+  async def test_select_cartridge_rewrites_a_stale_selection(self):
+    """DM0 naming the target while DM1 reports another position still needs a fresh WR DM0."""
+    script = handshake() + [(b"RD 1812\r", b"0"), (b"RD DM0\r", b"00003"), (b"RD DM1\r", b"00001")]
+    script += [(b"WR DM0 3\r", b"OK"), (b"RD 1915\r", b"1")]
+    script += [(b"RD DM0\r", b"00003"), (b"RD DM1\r", b"00003")]
+    device, io = make_device(script)
+    await device.setup()
+    await device.select_cartridge(3)
+    self.assertEqual(io.expected, [])
+    self.assertIn(b"WR DM0 3\r", io.writes)
+
+  async def test_select_cartridge_ignores_the_transfer_station_sensor(self):
+    """A plate on the station does not block rotation, and the station is not even read."""
+    script = handshake() + [(b"RD 1812\r", b"0"), (b"RD DM0\r", b"00001"), (b"RD DM1\r", b"00000")]
+    script += [(b"WR DM0 3\r", b"OK"), (b"RD 1915\r", b"1")]
+    script += [(b"RD DM0\r", b"00003"), (b"RD DM1\r", b"00003")]
+    device, io = make_device(script)
+    await device.setup()
+    await device.select_cartridge(3)
+    self.assertEqual(io.expected, [])
+    self.assertFalse([write for write in io.writes if b"1813" in write])
+
+  async def test_select_cartridge_refuses_a_plate_on_the_shovel(self):
+    device, io = make_device(handshake() + [(b"RD 1812\r", b"1")])
+    await device.setup()
+    with self.assertRaises(Exception):
+      await device.select_cartridge(3)
+    self.assertFalse([write for write in io.writes if write.startswith(b"WR")])
+
+  async def test_select_cartridge_rejects_addresses_outside_the_configuration(self):
+    for cartridge in (0, 11, True, 1.0, "3"):
+      with self.subTest(cartridge=cartridge):
+        device, io = make_device([(b"CR\r", b"CC")])
+        await device.setup()
+        with self.assertRaises(ValueError):
+          await device.select_cartridge(cartridge)  # type: ignore[arg-type]
+        self.assertEqual(io.writes, [b"CR\r"])
+
   async def test_export_plate_sequence(self):
     script = handshake()
     script += [(b"RD 1812\r", b"0"), (b"RD 1813\r", b"0")]

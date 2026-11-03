@@ -1919,7 +1919,7 @@
     "code_slug": "tecan/carousel.py",
     "doc_slug": "tecan/carousel/hello-world",
     "oem": "https://liconic.com/products/stx.php",
-    "notes": "Manufactured by Liconic. Status reads, export, soft reset and shovel placement observed on one LPT220 EVO unit; other handling commands follow the command reference but are unexercised. No barcode or Z-positioning API."
+    "notes": "Manufactured by Liconic. Exercised on one LPT220 EVO unit: handshake, status reads, ST 1801 initialization, WR DM0 rotation on all ten cartridges, ST 1905 export, ST 1904 import, ST 1908/ST 1909 internal moves, ST 1800 soft reset and ST 1906 placement. Slot-to-level mapping measured for a 7-slot deep-well cassette (three controller levels per slot). No barcode or Z-positioning API."
   },
   {
     "id": "tecan-evo",

@@ -13,8 +13,9 @@ preconditions and the decisions live here in readable Python.
 
 import asyncio
 import logging
+import time
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Optional, TypeVar
+from typing import Awaitable, Callable, Mapping, Optional, TypeVar
 
 from pylabrobot.io.serial import Serial
 
@@ -104,6 +105,8 @@ class TecanCarousel:
     *,
     number_of_cartridges: int = 10,
     levels_per_cartridge: int = 22,
+    cassette_slots: Optional[Mapping[int, int]] = None,
+    cassette_level_step: Optional[Mapping[int, int]] = None,
   ) -> None:
     """Configure an explicit operator-selected serial port without opening it.
 
@@ -122,6 +125,14 @@ class TecanCarousel:
       raise ValueError("levels_per_cartridge must be a positive integer")
     self.number_of_cartridges = number_of_cartridges
     self.levels_per_cartridge = levels_per_cartridge
+    self.cassette_slots: dict[int, int] = {
+      cartridge: (cassette_slots or {}).get(cartridge, levels_per_cartridge)
+      for cartridge in range(1, number_of_cartridges + 1)
+    }
+    self.cassette_level_step: dict[int, int] = {
+      cartridge: (cassette_level_step or {}).get(cartridge, 1)
+      for cartridge in range(1, number_of_cartridges + 1)
+    }
     self.io = Serial(
       human_readable_device_name="Tecan carousel",
       port=port,
@@ -243,10 +254,91 @@ class TecanCarousel:
       raise ValueError(
         f"{stage}: cartridge must be an integer in 1..{self.number_of_cartridges}, got {cartridge!r}"
       )
-    if type(level) is not int or not 1 <= level <= self.levels_per_cartridge:
+    max_level = min(
+      self.levels_per_cartridge,
+      1 + (self.cassette_slots[cartridge] - 1) * self.cassette_level_step[cartridge],
+    )
+    if type(level) is not int or not 1 <= level <= max_level:
+      raise ValueError(f"{stage}: level must be an integer in 1..{max_level}, got {level!r}")
+
+  def level_for_slot(self, cartridge: int, slot: int) -> int:
+    """Translate a physical slot number to the controller level that addresses it.
+
+    The controller counts *levels* along the lift stroke; how many levels a physical slot occupies
+    depends on the cassette's shelf pitch. A 22-slot standard cassette maps one level per slot. A
+    7-slot deep-well cassette on this unit maps three levels per slot, so its slots sit at levels
+    1, 4, 7, 10, 13, 16 and 19 — measured on hardware for slots 1, 3 and 7. Configure the step with
+    ``cassette_level_step`` when it differs.
+
+    Args:
+      cartridge: controller cartridge address, 1-based.
+      slot: physical slot counted from the bottom of the cassette, 1-based.
+
+    Returns:
+      The controller level to pass to ``select_position`` and the handling methods.
+    """
+    if type(cartridge) is not int or not 1 <= cartridge <= self.number_of_cartridges:
       raise ValueError(
-        f"{stage}: level must be an integer in 1..{self.levels_per_cartridge}, got {level!r}"
+        f"level_for_slot: cartridge must be an integer in 1..{self.number_of_cartridges}, "
+        f"got {cartridge!r}"
       )
+    slots = self.cassette_slots[cartridge]
+    if type(slot) is not int or not 1 <= slot <= slots:
+      raise ValueError(f"level_for_slot: slot must be an integer in 1..{slots}, got {slot!r}")
+    level = 1 + (slot - 1) * self.cassette_level_step[cartridge]
+    if level > self.levels_per_cartridge:
+      raise ValueError(
+        f"level_for_slot: slot {slot} maps to level {level}, beyond the configured "
+        f"{self.levels_per_cartridge} levels"
+      )
+    return level
+
+  def slot_for_level(self, cartridge: int, level: int) -> int:
+    """Translate a controller level to the physical slot it addresses.
+
+    The inverse of ``level_for_slot``. A level between two physical slots does not address a slot and
+    raises: the shelf pitch leaves gaps in the level axis.
+
+    Args:
+      cartridge: controller cartridge address, 1-based.
+      level: controller level, 1-based from the bottom.
+
+    Returns:
+      The physical slot counted from the bottom of the cassette, 1-based.
+    """
+    self._validate_position(cartridge, level, "slot_for_level")
+    step = self.cassette_level_step[cartridge]
+    offset = level - 1
+    if offset % step:
+      raise ValueError(
+        f"slot_for_level: level {level} does not address a slot on cartridge {cartridge} "
+        f"(levels step by {step})"
+      )
+    slot = offset // step + 1
+    slots = self.cassette_slots[cartridge]
+    if slot > slots:
+      raise ValueError(
+        f"slot_for_level: level {level} maps to slot {slot}, beyond the {slots} installed slots"
+      )
+    return slot
+
+  async def _select_cartridge(self, cartridge: int) -> None:
+    """Rotate to a cartridge address alone; caller holds the lock and checked the preconditions."""
+    selected = await self._read_int(b"RD DM0\r")
+    current = await self._read_int(b"RD DM1\r")
+    # Skip the write only when the mechanism agrees with the request. A stale DM0 from a previous
+    # session can name the target while DM1 still reports another position, and then only a fresh
+    # WR DM0 asks the controller to rotate.
+    if selected != cartridge or current != cartridge:
+      await self._set_register("DM0", cartridge)
+      await self._wait_ready("select_cartridge")
+      selected = await self._read_int(b"RD DM0\r")
+      if selected != cartridge:
+        raise CarouselError(
+          f"select_cartridge: selected cartridge reads back as {selected}, expected {cartridge}",
+          stage="select_cartridge",
+        )
+    await self._wait_for_current_cartridge(cartridge)
 
   async def _select_position(self, cartridge: int, level: int) -> None:
     """Rotate and lift to a cartridge level; caller holds the lock and checked the preconditions."""
@@ -292,6 +384,23 @@ class TecanCarousel:
           f"{stage}: expected transfer station {'occupied' if station else 'empty'}, saw {state}",
           stage=stage,
         )
+
+  async def _wait_sensor(
+    self, command: bytes, expected: bool, *, stage: str, timeout: float = 5.0
+  ) -> None:
+    """Poll one plate sensor until it reports ``expected``, tolerating release/engage settling."""
+    deadline = time.monotonic() + timeout
+    observed = not expected
+    while time.monotonic() < deadline:
+      observed = await self._read_bool(command)
+      if observed is expected:
+        return
+      await asyncio.sleep(self._POLL_INTERVAL)
+    state = "a plate" if observed else "no plate"
+    raise CarouselError(
+      f"{stage}: sensor {command!r} still reports {state} after {timeout:.1f}s",
+      stage=stage,
+    )
 
   async def _confirm_delivery(self, stage: str) -> None:
     """Fail loudly when the plate sensors contradict a completed handling action."""
@@ -487,6 +596,35 @@ class TecanCarousel:
 
   # Positioning
 
+  async def select_cartridge(self, cartridge: int, *, timeout: float = 60) -> None:
+    """Rotate to a cartridge without touching the lift (``WR DM0``).
+
+    The manual's Position Carrousel operation sets only the cartridge address, so this leaves
+    ``DM5`` exactly as it is. It does not move the lift and does not approach the transfer station,
+    so a plate waiting there does not block it. The shovel must be empty and the path clear.
+
+    Args:
+      cartridge: controller cartridge address, 1-based.
+      timeout: whole-operation deadline in seconds.
+
+    Raises:
+      ValueError: Invalid address.
+      CarouselError: The controller is busy, has an error, or a plate is on the shovel.
+      TimeoutError: The rotation did not report completion before the deadline.
+    """
+    if type(cartridge) is not int or not 1 <= cartridge <= self.number_of_cartridges:
+      raise ValueError(
+        f"select_cartridge: cartridge must be an integer in 1..{self.number_of_cartridges}, "
+        f"got {cartridge!r}"
+      )
+
+    async def _select() -> None:
+      await self._check_ready("select_cartridge")
+      await self._require_sensors(shovel=False, station=None, stage="select_cartridge")
+      await self._select_cartridge(cartridge)
+
+    await self._operation(_select, stage="select_cartridge", timeout=timeout)
+
   async def select_position(self, cartridge: int, level: int, *, timeout: float = 60) -> None:
     """Rotate and lift to a cartridge level, verifying the reported position.
 
@@ -665,18 +803,17 @@ class TecanCarousel:
       logger.info("Moving plate from cartridge %d level %d", cartridge, level)
       await self._write(b"ST 1908\r")
       await self._wait_ready("move_plate")
-      if not await self._read_bool(b"RD 1812\r"):
+      try:
+        await self._wait_sensor(b"RD 1812\r", True, stage="move_plate: pick")
+      except CarouselError as error:
         raise CarouselError(
           f"move_plate: nothing was picked from cartridge {cartridge} level {level}",
           stage="move_plate",
-        )
+        ) from error
       await self._select_position(to_cartridge, to_level)
       await self._write(b"ST 1909\r")
       await self._wait_ready("move_plate")
-      if await self._read_bool(b"RD 1812\r"):
-        raise CarouselError(
-          "move_plate: the shovel still senses a plate after the placement", stage="move_plate"
-        )
+      await self._wait_sensor(b"RD 1812\r", False, stage="move_plate: place")
       logger.info("Plate stored in cartridge %d level %d", to_cartridge, to_level)
 
     await self._operation(_move, stage="move_plate", timeout=timeout)
