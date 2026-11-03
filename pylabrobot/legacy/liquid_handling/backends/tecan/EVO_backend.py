@@ -1204,7 +1204,129 @@ class LiHa(EVOArm):
 
 
 class Mca(EVOArm):
-  pass
+  """Provides firmware commands for the MCA 96-channel arm."""
+
+  async def report_axis_parameter(self, selector: int) -> List[int]:
+    """Report axis parameter for all axes (X, Y, Z, G).
+
+    Args:
+      selector: Parameter selector:
+        0 - current position in 0.1 mm
+        1 - acceleration in 0.1 mm/s^2
+        2 - fast speed in 0.1 mm/s
+        3 - initialization speed in 0.1 mm/s
+        4 - initialization offset in 0.1 mm
+        5 - upper limit (range) in 0.1 mm
+        6 - initialization deviation in encoder increments
+        7 - displacement offset in 0.1 mm
+        8 - scale adjust factor
+        10 - lower limit in 0.1 mm
+        11 - target position in 0.1 mm
+        12 - scale factor
+
+    Returns:
+      List of [X, Y, Z, G] values for the selected parameter.
+    """
+    resp = await self.backend.send_command(
+      module=self.module, command="RPA", params=[selector]
+    )
+    data = resp["data"]
+    # MCA RPA returns list of ints for X, Y, Z, G
+    data_int = [int(v) for v in data]  # type: ignore[return-value]
+    if len(data_int) < 4:
+      raise ValueError(f"Unexpected RPA response length: {len(data_int)}")
+    return data_int[:4]  # X, Y, Z, G
+
+  async def report_x_param(self, param: int) -> int:
+    """Report current parameter for X-axis.
+
+    Args:
+      param: 0 - current position, 5 - actual machine range
+    """
+    if param == 0:
+      return (await self.report_axis_parameter(0))[0]
+    elif param == 5:
+      return (await self.report_axis_parameter(5))[0]
+    else:
+      raise ValueError(f"Unsupported X parameter selector: {param}")
+
+  async def report_y_param(self, param: int) -> List[int]:
+    """Report current parameter for Y-axis.
+
+    Args:
+      param: 0 - current position, 5 - actual machine range
+    """
+    if param == 0:
+      return [(await self.report_axis_parameter(0))[1]]
+    elif param == 5:
+      return [(await self.report_axis_parameter(5))[1]]
+    else:
+      raise ValueError(f"Unsupported Y parameter selector: {param}")
+
+  async def report_z_param(self, param: int) -> List[int]:
+    """Report current parameter for Z-axis.
+
+    Args:
+      param: 0 - current position, 5 - actual machine range
+    """
+    if param == 0:
+      return [(await self.report_axis_parameter(0))[2]]
+    elif param == 5:
+      return [(await self.report_axis_parameter(5))[2]]
+    else:
+      raise ValueError(f"Unsupported Z parameter selector: {param}")
+
+  async def report_g_param(self, param: int) -> int:
+    """Report current parameter for G-axis (gripper).
+
+    Args:
+      param: 0 - current position, 5 - actual machine range
+    """
+    if param == 0:
+      return (await self.report_axis_parameter(0))[3]
+    elif param == 5:
+      return (await self.report_axis_parameter(5))[3]
+    else:
+      raise ValueError(f"Unsupported G parameter selector: {param}")
+
+  async def position_initialization_x(self):
+    """Reinitialize X-axis. MCA uses PIA for full initialization."""
+    await self.backend.send_command(module=self.module, command="PIA")
+
+  async def position_absolute_all_axis(
+    self, x: Optional[int], y: Optional[int], z: Optional[int], g: Optional[int] = None
+  ):
+    """Position absolute for MCA axes.
+
+    Args:
+      x: absolute X position in 1/10 mm, or None to keep current
+      y: absolute Y position in 1/10 mm, or None to keep current
+      z: absolute Z position in 1/10 mm, or None to keep current
+      g: absolute G position in 1/10 mm, or None to keep current
+    """
+    params = [x, y, z, g]
+    # Filter trailing None values
+    while params and params[-1] is None:
+      params.pop()
+    await self.backend.send_command(module=self.module, command="PAA", params=params)
+
+  async def break_all_movement(self):
+    """Stop all axis movement."""
+    await self.backend.send_command(module=self.module, command="BMA", params=[0, 0, 0, 0])
+
+  async def report_head_parameter(self, selector: int) -> List[int]:
+    """Report head parameter.
+
+    Args:
+      selector: Parameter selector (device-specific)
+    """
+    resp = await self.backend.send_command(
+      module=self.module, command="RHP", params=[selector]
+    )
+    data = resp["data"]
+    if data is None:
+      return []
+    return [int(v) for v in data]  # type: ignore[return-value]
 
 
 class RoMa(EVOArm):
