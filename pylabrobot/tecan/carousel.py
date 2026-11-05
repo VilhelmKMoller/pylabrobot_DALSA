@@ -15,7 +15,7 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Mapping, Optional, TypeVar
+from typing import Awaitable, Callable, Mapping, Optional, Sequence, TypeVar
 
 from pylabrobot.io.serial import Serial
 
@@ -33,6 +33,64 @@ _CONTROLLER_ERRORS = {
   b"E4": "write protected: unauthorized access",
   b"E5": "base unit error: unauthorized access",
 }
+
+# Barcode replies do not use the ordinary one-frame-per-command shape. ``ST 1710`` answers ``OK``
+# followed by STX/ETX-framed binary segments: a ``SPS:`` position field, then the barcode payload.
+_SCAN_STX = b"\x02"
+_SCAN_ETX = b"\x03"
+
+# ``DM200`` reads 16384 while the handler is in barcode positioning mode (Liconic FAQ0097), and 0
+# outside it on this unit; the driver uses it only to check that ``RS 1910`` actually left the mode.
+_BCR_PROCESS_WORD = 16384
+
+# Ordered aim offsets for a barcode read, in register units relative to the requested level's
+# nominal read position, positive above it. Measured on this unit: the beam sits 1-2 mm below the
+# label at ``DM27 = 0`` and one plate was only read 50-100 units above nominal, so a nominal-only
+# scan is not reliable. ``DM23`` (788 for one controller level) bounds the useful band.
+_DEFAULT_BCR_SWEEP = (0, 50, 100, 150, 200)
+
+
+def _strip_latched_frames(data: bytes) -> bytes:
+  """Drop complete STX/ETX segments from the front of a reply.
+
+  In barcode mode the reader echoes its previous result inside the reply to the next ``WR``/``ST``
+  command, so an ordinary line reply can arrive behind one or two framed binary segments. The
+  protocol is one reply per command, so anything framed ahead of the line is stale and is discarded.
+  """
+  while data.startswith(_SCAN_STX):
+    end = data.find(_SCAN_ETX)
+    if end < 0:
+      return data
+    data = data[end + 1 :]
+  return data
+
+
+def _parse_scan_frame(data: bytes) -> tuple[Optional[str], Optional[str]]:
+  """Split an ``ST 1710`` reply into its position field and barcode payload.
+
+  Returns ``(position, payload)``. ``position`` is the raw text after ``SPS:``, or ``None`` when no
+  scanned frame is present. ``payload`` is the raw string after the position segment, including the
+  trailing Code128 check character, or ``None`` when no payload segment followed it. A payload of
+  ``"??"`` is the reader reporting that there is nothing to read at that position, not an error.
+
+  Payload segments that arrive before the ``SPS:`` field are latched results echoed from an earlier
+  read and are discarded: only a payload carried by a fresh scan counts.
+  """
+  body = data[len(b"OK\r\n") :] if data.startswith(b"OK\r\n") else data
+  position: Optional[str] = None
+  payload: Optional[str] = None
+  seen_position = False
+  for segment in body.split(_SCAN_ETX):
+    text = segment.replace(_SCAN_STX, b"").strip(b"\r\n").decode("ascii", errors="replace")
+    if not text or text == "OK":
+      continue
+    if text.startswith("SPS:"):
+      position = text[len("SPS:") :]
+      seen_position = True
+      continue
+    if seen_position:
+      payload = text
+  return position, payload
 
 
 class CarouselError(RuntimeError):
@@ -72,6 +130,29 @@ class CarouselStatus:
   process_status: int
 
 
+@dataclass(frozen=True)
+class BarcodeRead:
+  """One barcode scan of a carousel position.
+
+  Attributes:
+    cartridge: cartridge address that was scanned.
+    level: controller level that was scanned.
+    position: the reader's raw ``SPS:`` field, which encodes the position it actually scanned.
+    payload: raw barcode text including the trailing Code128 check character, or ``"??"`` when the
+      reader saw nothing.
+    barcode: the payload without the check character, or ``None`` when the position was empty.
+    aim_delta: the aim offset, in register units, that produced this result: negative below the
+      level's nominal read position, positive above it, 0 at the nominal position.
+  """
+
+  cartridge: int
+  level: int
+  position: str
+  payload: str
+  barcode: Optional[str]
+  aim_delta: int = 0
+
+
 class TecanCarousel:
   """A Tecan Carousel plate hotel, manufactured by Liconic.
 
@@ -88,16 +169,24 @@ class TecanCarousel:
   (level 1 is the lowest plate position); it is not the top-down slot numbering used in lab notes,
   and the mapping between them has not been verified for this unit.
 
+  Barcode reading (``read_barcode``) is the one operation that changes the positioning mode of the
+  whole handler: ``ST 1910`` puts the lift into barcode-read positioning and ``RS 1910`` is sent to
+  leave it. The entry/exit sequence and the read itself were measured on one LPT220 EVO unit, and
+  the exit is confirmed through ``DM200`` before the session is used for handling again.
+
   Not implemented, because their effect on this installation is not established: door and gate
-  control (``ST 1901``, ``ST 1902``), terminate access (``ST 1903``), barcode reading positions
-  (``ST 1910`` and its still-unresolved mode exit), short import/export, and the climate and shaker
-  commands of incubator variants. ``ST 1910`` is deliberately absent: it changes the positioning
-  mode of the whole handler, and no documented exit has been verified.
+  control (``ST 1901``, ``ST 1902``), terminate access (``ST 1903``), short import/export, and the
+  climate and shaker commands of incubator variants.
   """
 
   _EXCHANGE_TIMEOUT = 1.0
+  _EXCHANGE_LIMIT = 256
   _SETTLE_DELAY = 0.3
   _POLL_INTERVAL = 0.2
+  _SCAN_SETTLE = 0.15
+  _SCAN_QUIET = 0.8
+  _SCAN_TIMEOUT = 10.0
+  _SCAN_LIMIT = 4096
 
   def __init__(
     self,
@@ -156,6 +245,10 @@ class TecanCarousel:
     self._opened = False
     self._ready = False
     self._faulted = False
+    # True while the handler has been put into barcode positioning mode (ST 1910) and not confirmed
+    # out of it, so stop() can try to leave the mode before closing the link.
+    self._bcr_mode = False
+    self._bcr_exit_problem: Optional[str] = None
 
   # Transport
 
@@ -164,14 +257,14 @@ class TecanCarousel:
     logger.debug("Tecan request %r", command)
     await self.io.write(command)
     reply = bytearray()
-    for _ in range(16):
+    while len(reply) < self._EXCHANGE_LIMIT:
       chunk = await self.io.read(1)
       if not chunk:
         raise TimeoutError(f"Incomplete Tecan reply to {command!r}: {bytes(reply)!r}")
       reply.extend(chunk)
-      if chunk == b"\n":
+      if _strip_latched_frames(bytes(reply)).endswith(b"\n"):
         break
-    raw = bytes(reply)
+    raw = _strip_latched_frames(bytes(reply))
     logger.debug("Tecan reply %r", raw)
     if not raw.endswith(b"\r\n") or b"\r" in raw[:-2] or b"\n" in raw[:-2]:
       raise ValueError(f"Malformed Tecan frame: {raw!r}")
@@ -208,6 +301,102 @@ class TecanCarousel:
   async def _set_register(self, register: str, value: int) -> None:
     """Write one data memory and require its acknowledgement; caller holds the lock."""
     await self._write(f"WR {register} {value}\r".encode("ascii"))
+
+  async def _read_scan_frame(
+    self, command: bytes, *, stage: str, expect_scan: bool = False
+  ) -> bytes:
+    """Send a command whose reply may carry binary frames; caller holds the lock.
+
+    Barcode-mode replies do not have the one-line shape the rest of the protocol uses: ``OK`` is
+    followed by STX/ETX-framed segments, and the controller also re-sends its previous barcode
+    inside unrelated replies. Reading to the first newline would leave those bytes in the input
+    buffer for the next exchange to misparse, so the reply is collected until it has been quiet for
+    ``_SCAN_QUIET`` seconds instead.
+
+    With ``expect_scan`` the reply is only considered complete once it carries both the ``SPS:``
+    position and a payload segment. On 2026-11-05 the reader delivered those in separate bursts for
+    some positions, and a quiet-window-only read truncated the frame after the position field.
+    """
+    await self.io.reset_input_buffer()
+    await self.io.write(command)
+    await asyncio.sleep(self._SCAN_SETTLE)
+    buffer = bytearray()
+    last = time.monotonic()
+    deadline = last + self._SCAN_TIMEOUT
+    while time.monotonic() < deadline:
+      chunk = await self.io.read(64)
+      if chunk:
+        buffer.extend(chunk)
+        last = time.monotonic()
+        if len(buffer) > self._SCAN_LIMIT:
+          raise CarouselError(
+            f"{stage}: reply to {command!r} exceeded {self._SCAN_LIMIT} bytes", stage=stage
+          )
+        continue
+      quiet = time.monotonic() - last >= self._SCAN_QUIET
+      if expect_scan:
+        position, payload = _parse_scan_frame(bytes(buffer))
+        if position is not None and payload is not None and quiet:
+          break
+      elif buffer and quiet:
+        break
+      await asyncio.sleep(0.02)
+    data = bytes(buffer)
+    logger.debug("Tecan scan reply to %r: %s", command, data.hex())
+    return data
+
+  async def _scan_command(self, command: bytes, *, stage: str, expect_scan: bool = False) -> bytes:
+    """Send a barcode-mode command and require its ``OK``; caller holds the lock."""
+    data = await self._read_scan_frame(command, stage=stage, expect_scan=expect_scan)
+    head = data.split(b"\r\n", 1)[0]
+    if len(head) == 2 and head[:1] == b"E":
+      description = _CONTROLLER_ERRORS.get(head, "unknown controller error")
+      raise CarouselRejected(f"{command!r} rejected: {head.decode('ascii')} ({description})")
+    if head != b"OK":
+      raise CarouselError(
+        f"{stage}: expected OK from {command!r}, received {data[:60]!r}", stage=stage
+      )
+    return data
+
+  async def _leave_bcr_mode(
+    self, *, stage: str, barcode_mode_at_entry: Optional[bool] = None
+  ) -> bool:
+    """Best-effort return from barcode positioning mode; never raises. Caller holds the lock.
+
+    Sends ``ST 1713`` (reader off), ``RS 1200`` (two-way communication off) and ``RS 1910`` (mode
+    exit), then reads ``DM200``, which reports 16384 while the handler is in barcode mode.
+
+    ``DM200`` is not a clean indicator: on 2026-11-05 the unit reported 16384 at rest, before any
+    barcode command in the session had been sent, so a 16384 reading cannot prove that this call is
+    what left the handler in the mode. The check therefore only fails when the value was *not*
+    already 16384 when the read started; an unchanged 16384 is reported as a warning.
+    """
+    self._bcr_exit_problem = None
+    if not self._bcr_mode:
+      return True
+    try:
+      await self._scan_command(b"ST 1713\r", stage=f"{stage}: reader off")
+      await self._scan_command(b"RS 1200\r", stage=f"{stage}: two-way off")
+      await self._scan_command(b"RS 1910\r", stage=f"{stage}: mode exit")
+      code = await self._read_int(b"RD DM200\r")
+    except Exception as error:
+      self._bcr_exit_problem = repr(error)
+      logger.warning(
+        "Tecan barcode-mode cleanup failed; the handler mode is unknown", exc_info=True
+      )
+      return False
+    if code == _BCR_PROCESS_WORD:
+      if barcode_mode_at_entry:
+        logger.warning(
+          "DM200 still reports barcode mode (16384) after RS 1910, but it did so before the read "
+          "started as well; the exit was sent, the mode state is unchanged from entry"
+        )
+      else:
+        self._bcr_exit_problem = "DM200 still reports barcode mode (16384) after RS 1910"
+        logger.warning("%s", self._bcr_exit_problem)
+        return False
+    self._bcr_mode = False
+    return True
 
   async def _operation(
     self,
@@ -471,6 +660,10 @@ class TecanCarousel:
     async with self._lock:
       self._ready = False
       if self._opened:
+        if self._bcr_mode:
+          # Leaving barcode positioning mode matters even when the session faulted: the handler
+          # otherwise stays in a mode where handling commands are not assumed to work.
+          await self._leave_bcr_mode(stage="stop")
         if not self._faulted:
           try:
             reply = await asyncio.wait_for(self._exchange(b"CQ\r"), timeout=self._EXCHANGE_TIMEOUT)
@@ -664,6 +857,228 @@ class TecanCarousel:
       await self._select_position(cartridge, level)
 
     await self._operation(_select, stage="select_position", timeout=timeout)
+
+  # Barcode reading
+
+  async def _apply_dm27(self, value: int) -> None:
+    """Write the reader-height register and verify the readback; caller holds the lock.
+
+    The controller zero-pads register replies (``00550``), so the readback is compared as an
+    integer; a string compare was the bug behind one silently skipped write on 2026-11-03.
+    """
+    await self._set_register("DM27", value)
+    observed = await self._read_int(b"RD DM27\r")
+    if observed != value:
+      raise CarouselError(
+        f"read_barcode: DM27 reads back as {observed} after writing {value}",
+        stage="read_barcode",
+      )
+
+  async def _restore_dm27(self, original: int) -> bool:
+    """Put the reader-height register back; never raises. Caller holds the lock."""
+    try:
+      await self._apply_dm27(original)
+    except Exception:
+      logger.warning("Tecan: could not restore DM27 to %d", original, exc_info=True)
+      return False
+    return True
+
+  def _barcode_aims(
+    self, level: int, deltas: tuple[int, ...], pitch: int
+  ) -> list[tuple[int, int, int]]:
+    """Translate aim offsets into (controller level, DM27, delta) triples.
+
+    Aim height is the requested level's position minus ``DM27``, so a larger ``DM27`` aims lower and
+    a negative one cannot express an aim above a level (the firmware stores ``-N`` as ``1300+N``).
+    Offsets above a level are therefore reached from the level above it: level ``L-1`` sits one
+    pitch higher, and ``DM27 = pitch - delta`` brings it back down to ``delta`` above level ``L``.
+    Level 1 has no level above it, so upward offsets cannot be expressed there and are skipped.
+    """
+    aims: list[tuple[int, int, int]] = []
+    seen: set[tuple[int, int]] = set()
+    for delta in deltas:
+      if delta > 0:
+        if level < 2:
+          logger.info("read_barcode: no level above level 1 to aim from; skipping aim +%d", delta)
+          continue
+        if delta >= pitch:
+          raise ValueError(
+            f"read_barcode: aim +{delta} is at least one level pitch ({pitch}) above the level"
+          )
+        aim = (level - 1, pitch - delta, delta)
+      else:
+        aim = (level, -delta, delta)
+      key = aim[:2]
+      if key in seen:
+        continue
+      seen.add(key)
+      aims.append(aim)
+    if not aims:
+      raise ValueError("read_barcode: no usable aim offset for this level")
+    return aims
+
+  async def read_barcode(
+    self,
+    cartridge: int,
+    level: int,
+    *,
+    sweep: Optional[Sequence[int]] = None,
+    timeout: float = 150,
+  ) -> BarcodeRead:
+    """Read the barcode of the plate stored at a cartridge level.
+
+    Sequence, measured on an LPT220 EVO: position the carousel (``WR DM0``/``WR DM5``), switch the
+    reader on (``ST 1712``), activate two-way communication (``ST 1200``), put the lift into barcode
+    positioning (``ST 1910``) and scan (``ST 1710``); ``ST 1713``/``RS 1200``/``RS 1910`` leave the
+    mode again.
+
+    **Aim sweep.** The reader's vertical window is narrow and the plate label does not sit exactly
+    at the level's nominal read height on this unit: at ``DM27 = 0`` the beam lands 1-2 mm below the
+    barcode, and a plate high in its slot was only read 50-100 register units above nominal. A
+    single nominal scan is therefore not reliable. ``sweep`` is the ordered list of aim offsets, in
+    register units relative to the requested level's nominal position, negative below and positive
+    above; the scan stops at the first position that returns a payload. The offsets are applied
+    through ``DM27``, which is read before and restored afterwards.
+
+    ``ST 1910`` changes the positioning mode of the whole handler, so this is the one method that
+    depends on ``RS 1910`` restoring normal handling. That exit is confirmed through ``DM200``
+    (16384 in barcode mode on this unit) rather than assumed: if it still reports barcode mode the
+    session is faulted instead of being left in an unknown state. ``DM27`` is likewise verified by
+    readback and restored on every path, including failures.
+
+    Args:
+      cartridge: controller cartridge address, 1-based.
+      level: controller level, 1-based from the bottom of the cartridge.
+      sweep: aim offsets in register units, tried in order, stopping at the first read. Defaults to
+        nominal first and then 50, 100, 150 and 200 units above it. Pass ``(0,)`` for a single
+        nominal scan.
+      timeout: whole-operation deadline in seconds. Each scan costs a few seconds, so a wide sweep
+        needs a correspondingly larger deadline.
+
+    Returns:
+      The scan result. ``BarcodeRead.barcode`` is ``None`` when every aim offset read nothing
+      (``??``), which is a normal outcome for an empty slot. ``aim_delta`` reports which offset
+      produced the result.
+
+    Raises:
+      ValueError: Invalid address, or a sweep the geometry cannot express.
+      CarouselError: The controller is busy or faulty, the reply carries no scan frame, ``DM27``
+        could not be restored, or the handler could not be confirmed out of barcode positioning
+        mode.
+      TimeoutError: The operation did not complete before the deadline.
+    """
+    self._validate_position(cartridge, level, "read_barcode")
+    deltas = tuple(_DEFAULT_BCR_SWEEP if sweep is None else sweep)
+    if not deltas:
+      raise ValueError("read_barcode: sweep must contain at least one aim offset")
+    if any(type(delta) is not int for delta in deltas):  # type: ignore[arg-type]
+      raise ValueError(f"read_barcode: aim offsets must be integers, got {deltas!r}")
+
+    async def _read() -> BarcodeRead:
+      await self._check_ready("read_barcode")
+      await self._require_sensors(shovel=False, station=False, stage="read_barcode")
+      barcode_mode_at_entry = await self._read_int(b"RD DM200\r") == _BCR_PROCESS_WORD
+      original = await self._read_int(b"RD DM27\r")
+      pitch = await self._read_int(b"RD DM23\r") if any(delta > 0 for delta in deltas) else 0
+      aims = self._barcode_aims(level, deltas, pitch)
+      await self._select_position(cartridge, aims[0][0])
+      logger.info(
+        "Reading barcode for cartridge %d level %d over %d aim position(s); DM27 starts at %d",
+        cartridge,
+        level,
+        len(aims),
+        original,
+      )
+      result: Optional[BarcodeRead] = None
+      positions: list[str] = []
+      clean = True
+      restored = True
+      dm27 = original
+      positioned = aims[0][0]
+      try:
+        await self._scan_command(b"ST 1712\r", stage="read_barcode: reader on")
+        await self._scan_command(b"ST 1200\r", stage="read_barcode: two-way on")
+        self._bcr_mode = True
+        for requested_level, offset, delta in aims:
+          if offset != dm27:
+            await self._apply_dm27(offset)
+            dm27 = offset
+          if requested_level != positioned:
+            await self._select_position(cartridge, requested_level)
+            positioned = requested_level
+          await self._scan_command(b"ST 1910\r", stage="read_barcode: bcr positioning")
+          await self._wait_ready("read_barcode: bcr positioning")
+          frame = await self._scan_command(
+            b"ST 1710\r", stage="read_barcode: scan", expect_scan=True
+          )
+          position, payload = _parse_scan_frame(frame)
+          if position is None:
+            raise CarouselError(
+              "read_barcode: the scan reply carried no SPS position field, so no scan is evident",
+              stage="read_barcode",
+            )
+          if payload is None:
+            # A position without a payload segment is an incomplete read, not a verdict about the
+            # slot: try the next aim offset rather than abandoning the slot.
+            logger.warning(
+              "read_barcode: scan at aim %+d returned position %r without a barcode payload",
+              delta,
+              position,
+            )
+            positions.append(position)
+            continue
+          result = BarcodeRead(
+            cartridge=cartridge,
+            level=level,
+            position=position,
+            payload=payload,
+            barcode=None if payload == "??" else payload[:-1],
+            aim_delta=delta,
+          )
+          if result.barcode is not None:
+            logger.info(
+              "Barcode at cartridge %d level %d (aim %+d): %s",
+              cartridge,
+              level,
+              delta,
+              result.barcode,
+            )
+            break
+      finally:
+        restored = await self._restore_dm27(original)
+        clean = await self._leave_bcr_mode(
+          stage="read_barcode", barcode_mode_at_entry=barcode_mode_at_entry
+        )
+      if not restored:
+        raise CarouselError(
+          f"read_barcode: DM27 could not be restored to {original}; the reader height is left "
+          "changed, check it before the next scan",
+          stage="read_barcode",
+        )
+      if not clean:
+        raise CarouselError(
+          "read_barcode: the scan is back but the handler could not be confirmed out of barcode "
+          "positioning mode"
+          + (f": {self._bcr_exit_problem}" if self._bcr_exit_problem else "")
+          + "; do not send handling commands",
+          stage="read_barcode",
+        )
+      if result is None:
+        raise CarouselError(
+          "read_barcode: no scan frame carried a barcode payload at any of "
+          f"{len(aims)} aim position(s); last positions reported: {positions}",
+          stage="read_barcode",
+        )
+      if result.barcode is None:
+        logger.info(
+          "No barcode at cartridge %d level %d over %d aim position(s)",
+          cartridge,
+          level,
+          len(aims),
+        )
+      return result
+
+    return await self._operation(_read, stage="read_barcode", timeout=timeout)
 
   # Handling
 

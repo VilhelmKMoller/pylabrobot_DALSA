@@ -1,3 +1,3 @@
 """Tecan devices."""
 
-from .carousel import CarouselError, CarouselRejected, CarouselStatus, TecanCarousel
+from .carousel import BarcodeRead, CarouselError, CarouselRejected, CarouselStatus, TecanCarousel

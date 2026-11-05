@@ -63,6 +63,9 @@ def make_device(script: Script, *, auto: Optional[bytes] = None, **kwargs):
   device = TecanCarousel(port="operator-selected", **kwargs)
   device._SETTLE_DELAY = 0.0  # type: ignore[attr-defined]
   device._POLL_INTERVAL = 0.0  # type: ignore[attr-defined]
+  device._SCAN_SETTLE = 0.0  # type: ignore[attr-defined]
+  device._SCAN_QUIET = 0.0  # type: ignore[attr-defined]
+  device._SCAN_TIMEOUT = 0.2  # type: ignore[attr-defined]
   device.io = io  # type: ignore[assignment]
   return device, io
 
@@ -603,6 +606,265 @@ class HandlingTests(unittest.IsolatedAsyncioTestCase):
     with self.assertRaises(Exception):
       await device.move_plate(2, 17, 2, 15)
     self.assertNotIn(b"ST 1909\r", io.writes)
+
+
+# Recorded on the unit on 2026-11-03: OK, then STX STX "SPS:0108c" ETX STX "000VJ86<check>" ETX.
+SCAN_READ = b'OK\r\n\x02\x02SPS:0108c\x03\x02000VJ86"\x03'
+# Cartridge 9, level 3: nothing to read at that position.
+SCAN_EMPTY = b"OK\r\n\x02\x02SPS:0300i\x03\x02??\x03"
+# The same position one level up, when the aim is moved 50 units above nominal (level 8, DM27 738).
+SCAN_READ_HIGH = b'OK\r\n\x02\x02SPS:0808c\x03\x02000VJ85"\x03'
+# A latched result inside the ST 1910 reply: the previous read, with no SPS field.
+SCAN_LATCHED_ACK = b'OK\r\n\x02000VJ88"\x03'
+# A position field with no payload segment: seen on the unit on 2026-11-05, where the reader sent the
+# two segments in separate bursts. It is an incomplete read, not a verdict about the slot.
+SCAN_POSITION_ONLY = b"OK\r\n\x02\x02SPS:0200h\x03"
+
+PITCH = 788
+
+
+def scan_script(
+  cartridge: int,
+  aims: list,
+  scans: list,
+  *,
+  original_dm27: int = 0,
+  dm200: bytes = b"00000",
+  entry_dm200: bytes = b"00000",
+  bcr_ack: bytes = b"OK",
+  need_pitch: bool = False,
+) -> Script:
+  """The frames of one barcode read.
+
+  ``aims`` are the ``(requested_level, dm27, delta)`` triples the driver is expected to build, so a
+  test states the sweep geometry as well as the replies. ``scans`` are the replies to the successive
+  ``ST 1710`` commands.
+  """
+  script = handshake()
+  script += [(b"RD 1812\r", b"0"), (b"RD 1813\r", b"0")]
+  script += [(b"RD DM200\r", entry_dm200)]
+  script += [(b"RD DM27\r", f"{original_dm27:05d}".encode())]
+  if need_pitch or any(delta > 0 for _, _, delta in aims):
+    script += [(b"RD DM23\r", f"{PITCH:05d}".encode())]
+  # The driver positions once before entering barcode mode, then repositions between aims.
+  script += selection(cartridge, aims[0][0], current_cartridge=cartridge)
+  script += [(b"ST 1712\r", b"OK"), (b"ST 1200\r", b"OK")]
+  dm27 = original_dm27
+  positioned = aims[0][0]
+  for (requested_level, offset, _delta), reply in zip(aims, scans):
+    if offset != dm27:
+      script += [
+        (f"WR DM27 {offset}\r".encode(), b"OK"),
+        (b"RD DM27\r", f"{offset:05d}".encode()),
+      ]
+      dm27 = offset
+    if requested_level != positioned:
+      script += selection(
+        cartridge, requested_level, current_cartridge=cartridge, current_level=positioned
+      )
+      positioned = requested_level
+    script += [(b"ST 1910\r", bcr_ack), (b"RD 1915\r", b"1"), (b"ST 1710\r", reply)]
+  script += [
+    (f"WR DM27 {original_dm27}\r".encode(), b"OK"),
+    (b"RD DM27\r", f"{original_dm27:05d}".encode()),
+  ]
+  script += [
+    (b"ST 1713\r", b"OK"),
+    (b"RS 1200\r", b"OK"),
+    (b"RS 1910\r", b"OK"),
+    (b"RD DM200\r", dm200),
+  ]
+  return script
+
+
+def aims_for(level: int, deltas) -> list:
+  """The aim triples ``_barcode_aims`` builds for a level, for scripting a test."""
+  aims = []
+  for delta in deltas:
+    if delta > 0:
+      aims.append((level - 1, PITCH - delta, delta))
+    else:
+      aims.append((level, -delta, delta))
+  return aims
+
+
+class BarcodeTests(unittest.IsolatedAsyncioTestCase):
+  async def test_read_barcode_returns_the_payload_without_its_check_character(self):
+    script = scan_script(9, aims_for(1, (0,)), [SCAN_READ])
+    device, io = make_device(script)
+    await device.setup()
+    result = await device.read_barcode(9, 1, sweep=(0,))
+    self.assertEqual(result.barcode, "000VJ86")
+    self.assertEqual(result.payload, '000VJ86"')
+    self.assertEqual(result.position, "0108c")
+    self.assertEqual((result.cartridge, result.level, result.aim_delta), (9, 1, 0))
+    self.assertEqual(io.expected, [])
+
+  async def test_read_barcode_reports_an_empty_position_as_no_barcode(self):
+    """``??`` is a real "nothing here", not an error, so it returns rather than raising."""
+    script = scan_script(9, aims_for(3, (0,)), [SCAN_EMPTY])
+    device, io = make_device(script)
+    await device.setup()
+    result = await device.read_barcode(9, 3, sweep=(0,))
+    self.assertIsNone(result.barcode)
+    self.assertEqual(result.payload, "??")
+    self.assertEqual(result.position, "0300i")
+    self.assertEqual(io.expected, [])
+
+  async def test_read_barcode_sweeps_upward_when_the_nominal_aim_reads_nothing(self):
+    """The label can sit above the nominal read height; the sweep reaches it from the level above."""
+    aims = aims_for(9, (0, 50))
+    self.assertEqual(aims, [(9, 0, 0), (8, 738, 50)])
+    script = scan_script(9, aims, [SCAN_EMPTY, SCAN_READ_HIGH])
+    device, io = make_device(script)
+    await device.setup()
+    result = await device.read_barcode(9, 9, sweep=(0, 50))
+    self.assertEqual(result.barcode, "000VJ85")
+    self.assertEqual(result.aim_delta, 50)
+    self.assertEqual(result.level, 9)  # the requested slot, not the level the aim borrowed
+    self.assertIn(b"WR DM27 738\r", io.writes)
+    self.assertEqual(io.expected, [])
+
+  async def test_an_incomplete_frame_does_not_abandon_the_slot(self):
+    """A position without a payload is retried at the next aim instead of failing the read."""
+    script = scan_script(9, aims_for(9, (0, 50)), [SCAN_POSITION_ONLY, SCAN_READ_HIGH])
+    device, io = make_device(script)
+    await device.setup()
+    result = await device.read_barcode(9, 9, sweep=(0, 50))
+    self.assertEqual(result.barcode, "000VJ85")
+    self.assertEqual(result.aim_delta, 50)
+
+  async def test_no_payload_at_any_aim_raises_with_the_positions_it_saw(self):
+    script = scan_script(9, aims_for(9, (0, 50)), [SCAN_POSITION_ONLY, SCAN_POSITION_ONLY])
+    device, io = make_device(script)
+    await device.setup()
+    with self.assertRaisesRegex(Exception, "no scan frame carried a barcode payload"):
+      await device.read_barcode(9, 9, sweep=(0, 50))
+    self.assertIn(b"RS 1910\r", io.writes)
+
+  async def test_sweep_stops_at_the_first_hit(self):
+    script = scan_script(9, aims_for(9, (50,)), [SCAN_READ])
+    device, io = make_device(script)
+    await device.setup()
+    result = await device.read_barcode(9, 9, sweep=(50, 0))
+    self.assertEqual(result.aim_delta, 50)
+    self.assertEqual(io.writes.count(b"ST 1710\r"), 1)
+
+  async def test_upward_aims_are_skipped_on_the_top_level(self):
+    """Level 1 has no level above it, so only the downward aims remain available there."""
+    script = scan_script(9, aims_for(1, (0,)), [SCAN_READ], need_pitch=True)
+    device, io = make_device(script)
+    await device.setup()
+    result = await device.read_barcode(9, 1, sweep=(50, 0))
+    self.assertEqual(result.aim_delta, 0)
+    self.assertEqual(io.writes.count(b"ST 1710\r"), 1)
+
+  async def test_read_barcode_ignores_a_latched_result_in_the_positioning_acknowledgement(self):
+    """The reader repeats its last barcode inside unrelated replies; only a fresh scan counts."""
+    script = scan_script(9, aims_for(3, (0,)), [SCAN_EMPTY], bcr_ack=SCAN_LATCHED_ACK)
+    device, io = make_device(script)
+    await device.setup()
+    result = await device.read_barcode(9, 3, sweep=(0,))
+    self.assertIsNone(result.barcode)
+    self.assertEqual(io.expected, [])
+
+  async def test_read_barcode_restores_the_reader_offset_and_leaves_barcode_mode(self):
+    script = scan_script(9, aims_for(9, (0, 50)), [SCAN_EMPTY, SCAN_READ_HIGH])
+    device, io = make_device(script)
+    await device.setup()
+    await device.read_barcode(9, 9, sweep=(0, 50))
+    self.assertIn(b"WR DM27 738\r", io.writes)
+    self.assertEqual(io.writes[-6], b"WR DM27 0\r")
+    self.assertIn(b"RS 1910\r", io.writes)
+    self.assertFalse(device._bcr_mode)  # type: ignore[attr-defined]
+
+  async def test_read_barcode_faults_when_the_mode_exit_is_not_confirmed(self):
+    """DM200 still reporting barcode mode means the handler state is unknown: refuse to continue."""
+    script = scan_script(9, aims_for(1, (0,)), [SCAN_READ], dm200=b"16384")
+    device, io = make_device(script)
+    await device.setup()
+    with self.assertRaisesRegex(Exception, "barcode positioning mode"):
+      await device.read_barcode(9, 1, sweep=(0,))
+    self.assertEqual(io.writes.count(b"RS 1910\r"), 1)
+    with self.assertRaisesRegex(RuntimeError, "Faulted session"):
+      await device.setup()
+
+  async def test_read_barcode_faults_when_the_reader_offset_cannot_be_restored(self):
+    script = scan_script(9, aims_for(9, (0, 50)), [SCAN_EMPTY, SCAN_READ_HIGH])
+    # The restore write is answered with a wrong readback.
+    index = -5
+    script[index] = (b"RD DM27\r", b"00738")
+    device, io = make_device(script)
+    await device.setup()
+    with self.assertRaisesRegex(Exception, "DM27 could not be restored"):
+      await device.read_barcode(9, 9, sweep=(0, 50))
+
+  async def test_a_preexisting_barcode_mode_reading_does_not_fail_the_read(self):
+    """DM200 read 16384 at rest on 2026-11-05, before any barcode command; it cannot prove a stuck
+    exit, so an unchanged value is a warning and the result is still returned."""
+    script = scan_script(9, aims_for(1, (0,)), [SCAN_READ], entry_dm200=b"16384", dm200=b"16384")
+    device, io = make_device(script)
+    await device.setup()
+    result = await device.read_barcode(9, 1, sweep=(0,))
+    self.assertEqual(result.barcode, "000VJ86")
+    self.assertEqual(io.expected, [])
+
+  async def test_read_barcode_cleans_up_after_a_rejected_scan(self):
+    script = scan_script(9, aims_for(1, (0,)), [b"E1"])
+    device, io = make_device(script)
+    await device.setup()
+    with self.assertRaises(Exception):
+      await device.read_barcode(9, 1, sweep=(0,))
+    self.assertIn(b"ST 1713\r", io.writes)
+    self.assertIn(b"RS 1200\r", io.writes)
+    self.assertIn(b"RS 1910\r", io.writes)
+    self.assertIn(b"WR DM27 0\r", io.writes)
+
+  async def test_read_barcode_requires_a_clean_motion_path(self):
+    script = handshake() + [(b"RD 1812\r", b"1")]
+    device, io = make_device(script)
+    await device.setup()
+    with self.assertRaises(Exception):
+      await device.read_barcode(9, 1)
+    self.assertNotIn(b"ST 1910\r", io.writes)
+
+  async def test_read_barcode_rejects_addresses_and_bad_sweeps_before_the_wire(self):
+    device, io = make_device([])
+    with self.assertRaises(ValueError):
+      await device.read_barcode(11, 1)
+    with self.assertRaises(ValueError):
+      await device.read_barcode(9, 0)
+    with self.assertRaises(ValueError):
+      await device.read_barcode(9, 1, sweep=())
+    with self.assertRaises(ValueError):
+      await device.read_barcode(9, 1, sweep=(0.5,))  # type: ignore[arg-type]
+    self.assertEqual(io.writes, [])
+
+  def test_upward_aim_beyond_one_pitch_is_rejected(self):
+    device, _ = make_device([])
+    with self.assertRaises(ValueError):
+      device._barcode_aims(9, (PITCH,), PITCH)  # type: ignore[attr-defined]
+
+  async def test_a_latched_frame_ahead_of_a_line_reply_does_not_desynchronise_the_link(self):
+    """In barcode mode the reader puts its previous result ahead of the next reply; it is discarded."""
+    script = [
+      (b"CR\r", b"CC"),
+      (b"RD 1915\r", b'\x02000VJ86"\x031'),
+      (b"RD 1814\r", b"0"),
+    ]
+    device, io = make_device(script)
+    await device.setup()
+    self.assertTrue(await device.is_ready())
+    self.assertFalse(await device.has_error())
+    self.assertEqual(io.expected, [])
+
+  def test_scan_frame_parser_keeps_the_check_character(self):
+    from pylabrobot.tecan.carousel import _parse_scan_frame
+
+    self.assertEqual(_parse_scan_frame(SCAN_READ), ("0108c", '000VJ86"'))
+    self.assertEqual(_parse_scan_frame(SCAN_EMPTY), ("0300i", "??"))
+    self.assertEqual(_parse_scan_frame(SCAN_LATCHED_ACK), (None, None))
+    self.assertEqual(_parse_scan_frame(b""), (None, None))
 
 
 class ValidationTests(unittest.IsolatedAsyncioTestCase):
