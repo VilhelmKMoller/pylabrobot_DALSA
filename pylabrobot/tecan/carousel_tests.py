@@ -304,6 +304,19 @@ class HandlingTests(unittest.IsolatedAsyncioTestCase):
       [1, 2, 3, 4, 5, 6, 7],
     )
 
+  def test_a_cassette_top_level_shifts_the_whole_mapping(self):
+    """Measured on cartridge 1 on 2026-11-05: its 7-slot deep-well cassette sits at levels 22..4."""
+    device, _ = make_device(
+      [],
+      cassette_slots={1: 7},
+      cassette_level_step={1: 3},
+      cassette_levels_increase_downward={1: False},
+      cassette_top_level={1: 22},
+    )
+    self.assertEqual([device.level_for_slot(1, slot) for slot in (1, 4, 7)], [22, 13, 4])
+    self.assertEqual([device.slot_for_level(1, level) for level in (22, 13, 4)], [1, 4, 7])
+    self.assertEqual(device.level_for_slot(1, 2), 19)
+
   def test_level_for_slot_rejects_slots_beyond_the_installed_cassette(self):
     device, _ = make_device([])
     device.cassette_slots[1] = 7

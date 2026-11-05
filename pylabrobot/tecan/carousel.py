@@ -197,6 +197,7 @@ class TecanCarousel:
     cassette_slots: Optional[Mapping[int, int]] = None,
     cassette_level_step: Optional[Mapping[int, int]] = None,
     cassette_levels_increase_downward: Optional[Mapping[int, bool]] = None,
+    cassette_top_level: Optional[Mapping[int, int]] = None,
   ) -> None:
     """Configure an explicit operator-selected serial port without opening it.
 
@@ -206,6 +207,10 @@ class TecanCarousel:
         of ten; the installed count is an installation detail.
       levels_per_cartridge: plate positions per cartridge for the installed cassettes. The default
         of 22 is a standard cassette; half-height and deep-well cassettes hold fewer.
+      cassette_top_level: controller level of each cassette's topmost slot, for cassettes that are
+        not mounted so that their top slot sits at the level the geometry would otherwise assume.
+        On the unit this driver was developed against, the 7-slot deep-well cassette in cartridge 1
+        has its top slot at level 22, so slot 1 is level 22 and slot 7 is level 4, not 19 and 1.
     """
     if not port:
       raise ValueError("An explicit port is required")
@@ -228,6 +233,13 @@ class TecanCarousel:
     # Positions in the public API always count from the top either way.
     self.cassette_levels_increase_downward: dict[int, bool] = {
       cartridge: (cassette_levels_increase_downward or {}).get(cartridge, True)
+      for cartridge in range(1, number_of_cartridges + 1)
+    }
+    # Controller level of the cassette's topmost slot, when it is not where the geometry alone
+    # would put it. None keeps the derived default (level 1 for a downward-counting cassette, the
+    # highest level for an upward-counting one, assuming the cassette starts at level 1).
+    self.cassette_top_level: dict[int, Optional[int]] = {
+      cartridge: (cassette_top_level or {}).get(cartridge)
       for cartridge in range(1, number_of_cartridges + 1)
     }
     self.io = Serial(
@@ -451,12 +463,22 @@ class TecanCarousel:
       raise ValueError(
         f"{stage}: cartridge must be an integer in 1..{self.number_of_cartridges}, got {cartridge!r}"
       )
-    max_level = min(
-      self.levels_per_cartridge,
-      1 + (self.cassette_slots[cartridge] - 1) * self.cassette_level_step[cartridge],
-    )
+    slots = self.cassette_slots[cartridge]
+    step = self.cassette_level_step[cartridge]
+    top = self._top_level(cartridge)
+    topmost = top + (slots - 1) * step if self.cassette_levels_increase_downward[cartridge] else top
+    max_level = min(self.levels_per_cartridge, topmost)
     if type(level) is not int or not 1 <= level <= max_level:
       raise ValueError(f"{stage}: level must be an integer in 1..{max_level}, got {level!r}")
+
+  def _top_level(self, cartridge: int) -> int:
+    """The controller level of a cassette's topmost slot, from the config or the geometry."""
+    configured = self.cassette_top_level[cartridge]
+    if configured is not None:
+      return configured
+    if self.cassette_levels_increase_downward[cartridge]:
+      return 1
+    return 1 + (self.cassette_slots[cartridge] - 1) * self.cassette_level_step[cartridge]
 
   def level_for_slot(self, cartridge: int, slot: int) -> int:
     """Translate a physical slot number to the controller level that addresses it.
@@ -484,16 +506,17 @@ class TecanCarousel:
     if type(slot) is not int or not 1 <= slot <= slots:
       raise ValueError(f"level_for_slot: slot must be an integer in 1..{slots}, got {slot!r}")
     step = self.cassette_level_step[cartridge]
+    top = self._top_level(cartridge)
     if self.cassette_levels_increase_downward[cartridge]:
-      # Controller level 1 is the topmost slot: counting from the top runs with the level axis.
-      level = 1 + (slot - 1) * step
+      # Level numbering runs with the slot order: the top slot is the lowest level of the cassette.
+      level = top + (slot - 1) * step
     else:
-      # Controller level 1 is the bottommost slot: the topmost slot sits at the highest level.
-      level = 1 + (slots - 1) * step - (slot - 1) * step
-    if level > self.levels_per_cartridge:
+      # Level numbering runs against the slot order: the top slot is the highest level.
+      level = top - (slot - 1) * step
+    if not 1 <= level <= self.levels_per_cartridge:
       raise ValueError(
-        f"level_for_slot: slot {slot} maps to level {level}, beyond the configured "
-        f"{self.levels_per_cartridge} levels"
+        f"level_for_slot: slot {slot} maps to level {level}, outside the configured "
+        f"1..{self.levels_per_cartridge} levels"
       )
     return level
 
@@ -514,10 +537,11 @@ class TecanCarousel:
     self._validate_position(cartridge, level, "slot_for_level")
     step = self.cassette_level_step[cartridge]
     slots = self.cassette_slots[cartridge]
+    top = self._top_level(cartridge)
     if self.cassette_levels_increase_downward[cartridge]:
-      offset = level - 1
+      offset = level - top
     else:
-      offset = 1 + (slots - 1) * step - level
+      offset = top - level
     if offset % step:
       raise ValueError(
         f"slot_for_level: level {level} does not address a slot on cartridge {cartridge} "

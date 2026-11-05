@@ -22,7 +22,10 @@ cassette has *slots*; how many levels a slot occupies depends on the cassette's 
 the device with ``cassette_slots`` and ``cassette_level_step``, then use
 :meth:`TecanCarousel.level_for_slot` and :meth:`TecanCarousel.slot_for_level` to translate. On the
 unit this driver was developed against, a 22-slot standard cassette maps one level per slot and a
-7-slot deep-well cassette maps three, so its slots sit at levels 1, 4, 7, 10, 13, 16 and 19.
+7-slot deep-well cassette maps three. Where the cassette's top slot does not sit at the level the
+geometry would derive, pass ``cassette_top_level``: the deep-well cassette in cartridge 1 was
+measured at levels 22, 19, 16, 13, 10, 7 and 4 for slots 1-7, so the naive 1-19 mapping aims one slot
+low there.
 
 Handshake, status reads, ``ST 1801`` initialization, rotation through ``WR DM0``, ``ST 1905`` export,
 ``ST 1904`` import, ``ST 1908``/``ST 1909`` internal moves, ``ST 1800`` soft reset and ``ST 1906``
