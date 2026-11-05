@@ -59,3 +59,4 @@ offsets exist.
 .. autoexception:: CarouselError
 
 .. autoexception:: CarouselRejected
+
