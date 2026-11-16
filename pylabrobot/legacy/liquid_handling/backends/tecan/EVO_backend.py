@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from abc import ABCMeta, abstractmethod
 from typing import (
   Dict,
@@ -257,6 +258,27 @@ class EVOBackend(TecanLiquidHandler):
     if self._mca_connected is None:
       raise RuntimeError("mca_connected not set, forgot to call `setup`?")
     return self._mca_connected
+
+  async def door_lock(self):
+    """Request both locks; a successful response does not verify physical engagement.
+
+    Failure stops the sequence and can leave the door only partially locked.
+    """
+    for lock in (1, 2):
+      try:
+        await self.send_command("O1", "ALO", [lock, 1])
+      except TecanError as exc:
+        if exc.module == "O1" and exc.error_code == 18:
+          logging.getLogger(__name__).warning(
+            "Door lock rejected (O1 error 18): door may be open; close the door and "
+            "check both locks. The lock state may be partial or unknown."
+          )
+        raise
+
+  async def door_unlock(self):
+    """Request both locks release, not physical opening; failures may leave partial state."""
+    await self.send_command("O1", "ALO", [1, 0])
+    await self.send_command("O1", "ALO", [2, 0])
 
   def serialize(self) -> dict:
     return {**super().serialize(), **self.io.serialize()}
