@@ -219,6 +219,23 @@ class EVOBackend(TecanLiquidHandler):
       68.7  # mm, is what was used to develop this but possibly too low
     )
 
+  def x_coordinator(self, **kwargs):
+    """The backend's X collision-avoidance coordinator (created on first use).
+
+    Keyword arguments are passed to ``EvoXCoordinator`` on first creation only.
+    Use ``await backend.x_coordinator().move_x("mca", 9100)``.
+    """
+    from .x_coordinator import EvoXCoordinator
+    from .x_layout import EVO_Z_TRAVEL, evo_planner
+
+    if getattr(self, "_x_coordinator", None) is None:
+      planner = kwargs.pop("planner", None) or evo_planner()
+      kwargs.setdefault("z_travel", EVO_Z_TRAVEL)
+      self._x_coordinator = EvoXCoordinator(self, planner, **kwargs)
+    elif kwargs:
+      raise ValueError("x_coordinator already created; settings cannot be changed")
+    return self._x_coordinator
+
   @property
   def num_channels(self) -> int:
     """The number of pipette channels present on the robot."""
