@@ -481,7 +481,8 @@ class EVOBackend(TecanLiquidHandler):
   # volume on all channels, with consecutive channels over consecutive rows of one column.
   # EVOware "Mix" with a mix liquid class (``liha_mix``); an aspirate right after it in the same
   # wells follows on without moving or taking an air gap, as EVOware does.
-  # Not supported yet (raises): returning DiTis to a rack, ``mix`` in aspirate/dispense ops,
+  # DiTis go into the chute or back into a rack (EVOware "Set DiTis Back").
+  # Not supported yet (raises): ``mix`` in aspirate/dispense ops,
   # multi-dispense, partial dispense, flow rates / liquid heights / blow-out other than the liquid
   # class's.
   #
@@ -750,25 +751,48 @@ class EVOBackend(TecanLiquidHandler):
       self._liha_ditis_state = ditis
     return ditis
 
-  async def drop_tips(self, ops: List[Drop], use_channels: List[int]):
-    """EVOware "Drop DiTis" into the DiTi waste chute (grid 1, EVOware site 7).
+  async def drop_tips(self, ops: List[Drop], use_channels: List[int], slow_x: bool = True):
+    """EVOware "Drop DiTis" into the DiTi waste chute, or "Set DiTis Back" into a DiTi rack.
 
-    The trash must be the chute on the deck: a ``Washstation_2Grid_DiTi_Waste`` on a
+    Into a ``Trash``: it must be the chute on the deck, a ``Washstation_2Grid_DiTi_Waste`` on a
     ``DiTi_Waste_3_Trough_Wash`` carrier at grid 1, PLR site 0 (``liha.DITI_WASTE``). EVOware's
     position for it is fixed, so offsets (e.g. those ``discard_tips`` spreads over the trash) are
-    ignored. Returning DiTis to a rack (EVOware "Set DiTis Back") is not supported yet.
+    ignored.
+
+    Into tip spots (e.g. ``LiquidHandler.return_tips``): ``liha.plan_set_ditis_back``, consecutive
+    rows of one column of a rack of the mounted DiTi type, channel order = row order. The channels
+    must hold only air (dispense first; DiTis with liquid or unknown contents go to the chute).
+    ``slow_x`` as in ``pick_up_tips``. Pick them up again with ``pick_up_tips``.
+
+    Raises ChannelizedError (HasTipError) for channels that still have their DiTi afterwards.
     """
     self._liha_mixed = None
-    if not all(isinstance(op.resource, Trash) for op in ops):
-      raise NotImplementedError("LiHa DiTis can only be dropped into the DiTi waste (a Trash resource)")
-    for trash in {op.resource for op in ops}:
-      site = self._liha_site(trash)
-      if site != liha.DITI_WASTE:
-        raise ValueError(f"{trash.name} is at {site}, not the LiHa DiTi waste {liha.DITI_WASTE}")
-    tips = self._liha_channels(use_channels)
-    if len(ops) != len(use_channels):
-      raise ValueError("one operation per channel")
-    plan = liha.plan_drop_ditis(self._liha_geometry(), tips)
+    if all(isinstance(op.resource, TipSpot) for op in ops):
+      site, column, row, tips = self._liha_target(ops, use_channels)
+      diti = self._liha_diti(ops)
+      if diti != site.labware:
+        raise ValueError(f"tip {diti!r} does not belong to rack {site.labware!r}")
+      contents = self._liha_contents()
+      held = [c for c in use_channels if contents.get(c) is not None]
+      if held:
+        raise RuntimeError(
+          f"LiHa channels {held} hold liquid or unknown contents; dispense first, or drop the DiTis"
+          " into the chute"
+        )
+      plan = liha.plan_set_ditis_back(self._liha_geometry(), site, column, row, tips, slow_x)
+    elif all(isinstance(op.resource, Trash) for op in ops):
+      for trash in {op.resource for op in ops}:
+        site = self._liha_site(trash)
+        if site != liha.DITI_WASTE:
+          raise ValueError(f"{trash.name} is at {site}, not the LiHa DiTi waste {liha.DITI_WASTE}")
+      tips = self._liha_channels(use_channels)
+      if len(ops) != len(use_channels):
+        raise ValueError("one operation per channel")
+      plan = liha.plan_drop_ditis(self._liha_geometry(), tips)
+    else:
+      raise NotImplementedError(
+        "LiHa DiTis go either into the DiTi waste (a Trash) or back into a DiTi rack (tip spots)"
+      )
     await self._liha_require_tips(use_channels, mounted=True)
     replies = await self._liha_execute(plan, use_channels)
     after = next(r for (c, _), r in zip(reversed(plan.commands), reversed(replies)) if c == "RTS")

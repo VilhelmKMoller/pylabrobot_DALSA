@@ -45,6 +45,11 @@ TROUGH_300 = (
   " both; 779 ul gave 1 in 2025); rule unknown, 0.2 mm"
 )
 
+SMOOTH_MOVE = (
+  "SSM1 instead of SSM0 after the DiTi move, otherwise identical: a setting of some EVOware sessions"
+  " (2024-09-24/25, 2026-06-16) for every DiTi step type; SSM0 in 654 of 756 logged DiTi steps"
+)
+
 EXPECTED: Dict[str, Dict[int, str]] = {
   "EVO_20260409_115221.json": {
     25: TROUGH_300,
@@ -55,6 +60,9 @@ EXPECTED: Dict[str, Dict[int, str]] = {
     25: TROUGH_300,
     75: END_OF_RUN,
   },
+  # single-tip set back / pick up; every other pair uses tips that are not consecutive (refused)
+  "EVO_20260616_175039.json": {i: SMOOTH_MOVE for i in range(48) if i % 4 in (2, 3)},
+  "EVO_20261117_114851.json": {},
 }
 
 
@@ -173,7 +181,17 @@ class Replay:
         self.plunger[t - 1] = round(liha.DROP_AIR_GAP_UL * self.geo.machine.steps_per_ul)
       self.diti = None
       drop = True
-    elif name.startswith("Get DiTis"):
+    elif name.startswith("Set DiTis Back"):
+      first = notes[0]
+      tips = [t["tip"] for t in notes]
+      slow = any(c.startswith("SFX4999") for c, _, _ in cmds)
+      plan = plan_strings(
+        liha.plan_set_ditis_back(
+          self.geo, self.site(first), first["column"], first["row"], tips, slow
+        )
+      )
+      self.diti = None  # the plungers are not touched
+    elif name.startswith(("Get DiTis", "Pick Up DiTis")):
       first = notes[0]
       tips = [t["tip"] for t in notes]
       slow = any(c.startswith("SFX4999") for c, _, _ in cmds)
@@ -331,6 +349,19 @@ class ReplayTests(unittest.TestCase):
     self.assertEqual(counts.get("plunger"), 19)
     mixes = [outcome for _, step, outcome, _ in self.results if step.startswith("Mix")]
     self.assertEqual(mixes, ["same"] * 9)
+
+  def test_set_ditis_back_runs(self):
+    """Marie_tranfer_hangingtips2: DiTis fetched and set back in loops ("Pick Up DiTis" = Get DiTis,
+    "Set DiTis Back" = the fetch position at Z 1075, AST). 2026-11-17: 72 + 72 steps with the slow X
+    move, all identical."""
+    self.replay("EVO_20261117_114851.json")
+    steps = [(step.split()[0], outcome) for _, step, outcome, _ in self.results]
+    self.assertEqual(steps.count(("Set", "same")), 72)
+    self.assertEqual(steps.count(("Pick", "same")), 72)
+    self.replay("EVO_20260616_175039.json")
+    refused = [d for _, _, outcome, d in self.results if outcome == "refused"]
+    self.assertEqual(len(refused), 24)
+    self.assertTrue(all("consecutive tips" in str(d) for d in refused))
 
   def test_planners_for_the_2026_11_24_deck(self):
     """The deck for the visual validation: plain 1000 ul DiTis at grid 46 site 1 (MCA carrier),

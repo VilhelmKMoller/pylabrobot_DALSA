@@ -98,6 +98,10 @@ DITI_WASTE = LihaSite(1, 6, "DiTi Waste 3 Trough + Wash", "Washstation 2Grid DiT
 # derived: verified against the logs only.
 DITI_WASTE_Y = 2810
 DITI_WASTE_Z = 1075
+# EVOware ejects DiTis at this one Z everywhere: into the chute and when setting them back into a
+# rack ("Set DiTis Back": all 252 error-free logged steps, 4 DiTi labware types on grids 10-46,
+# fetch starts 700-783). It follows no labware height.
+DITI_EJECT_Z = DITI_WASTE_Z
 
 MIN_Y_SPACING, MAX_Y_SPACING = 90, 380  # PAA/PSY Ys range, LiHa manual p. 56-57
 DEFAULT_Y_SPACING = 90
@@ -460,6 +464,41 @@ def plan_get_ditis(
   if slow_x:
     plan.add("SFX", *DEFAULT_X_MOVE)
   plan.add("AGT", tip_mask(tips), fetch.z_start, fetch.search_dist, 0)
+  plan.add("RTS")
+  return plan
+
+
+def plan_set_ditis_back(
+  geo: LihaGeometry,
+  rack: LihaSite,
+  column: int,
+  row: int,
+  tips: Sequence[int],
+  slow_x: bool = True,
+) -> Plan:
+  """EVOware "Set DiTis Back": the mounted DiTis back into a rack (logged: SSM1, [SFX4999,550,] SHZ,
+  SSM1, PAA x,y,ys,1075 on the tips, SSM0, [SFX10000,1600,] RTS, AST mask,0, RTS).
+
+  X, Y and spacing are those of fetching from that rack position (``diti_fetch``; all 252
+  error-free logged steps), Z is ``DITI_EJECT_Z``. The plungers are not touched. ``slow_x`` as in
+  ``plan_get_ditis`` (EVOware: 75 of 254 steps, the sessions that polled the RoMa). The caller checks
+  the last RTS: the tips must be gone. Pick the DiTis up again with ``plan_get_ditis`` (EVOware's
+  "Pick Up DiTis" sends the same commands: 255 of 257 logged steps)."""
+  n = geo.machine.tip_count
+  tips = _check_tips(tips, n)
+  pos = geo.diti_fetch(rack, column, row, tips[0]).position
+  plan = Plan()
+  plan.add("SSM", 1)
+  if slow_x:
+    plan.add("SFX", *DITI_X_MOVE)
+  plan.add("SHZ", *[geo.z_range] * n)
+  plan.add("SSM", 1)
+  plan.add("PAA", pos.x, pos.y, pos.y_spacing, *_each(n, tips, DITI_EJECT_Z, geo.z_range))
+  plan.add("SSM", 0)
+  if slow_x:
+    plan.add("SFX", *DEFAULT_X_MOVE)
+  plan.add("RTS")
+  plan.add("AST", tip_mask(tips), 0)
   plan.add("RTS")
   return plan
 

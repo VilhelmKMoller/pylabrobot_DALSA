@@ -1,0 +1,5694 @@
+{
+ "log": "EVO_20260616_175039.LOG",
+ "script": "Marie_tranfer_hangingtips",
+ "worktable": "Marie_tranfer_hangingtips.esc_20260616_175027",
+ "carrier_cfg": "Carrier.cfg_20260616_170033",
+ "carrier_cfg_reason": null,
+ "evoware_inf": "Evoware.inf_20260616_173115",
+ "liquid_class_files": [
+  "DefaultLCs.XML_20260616_144142",
+  "CustomLCs.XML_20260616_144142"
+ ],
+ "tip_offset": -500,
+ "z_range": 2100,
+ "layout": {
+  "1": 322,
+  "10": 5,
+  "18": 325,
+  "-1": 14
+ },
+ "config_records": [
+  "13;DiTi Waste 3 Trough + Wash;322/0;125/145/60;500/3520;8;0;",
+  "998;0;250/710;0/30/0;;",
+  "998;0;250/920;0/760/0;;",
+  "998;0;250/710;0/1700/0;;",
+  "998;0;240/840;255/-14/100;;",
+  "998;0;240/840;255/860/100;;",
+  "998;0;240/840;255/1734/100;;",
+  "998;0;500/930;0/2740/0;;",
+  "998;0;0/0;0/0/0;;",
+  "13;DiTi 3Pos;5/61;120/247/45;1490/3740;3;0;",
+  "998;0;1270/885;133/155/0;Pos1;",
+  "998;0;1270/885;133/1155/0;Pos2;",
+  "998;0;1270/885;133/2155/0;Pos3;",
+  "13;MCA96 Carrier 4 pos;325/22;125/515/60;1490/3800;4;0;",
+  "998;0;1270/855;100/35/0;;",
+  "998;0;1270/855;98/995/0;;",
+  "998;0;1270/855;94/1955/0;;",
+  "998;0;1270/855;92/2915/0;;",
+  "15;DiTi 1000ul LiHa;0;12/8/8;122/132/1112/762/132;1087/877/865/807;33.2;1;1;0/10/10;100;8388608;1;1100;326;0;0;0;122;131;5;6;",
+  "15;Marie DiTi 1000ul LiHa Fluen;0;12/8/8;155/132/1145/762/132;1087/877/865/807;33.2;1;1;0/10/10;100;8388608;-1;1100;326;0;0;0;122;131;5;6;",
+  "15;Washstation 2Grid DiTi Waste;0;1/8/8;251/530/251/530/530;-390/-390/-390/-440;912;8;1;0/10/10;100;128;-1;0;0;0;0;0;735;827;5;3;"
+ ],
+ "liquid_classes": {},
+ "liquid_class_sources": {},
+ "steps": [
+  {
+   "line": 2,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis  1, 1 DiTi 1000ul LiHa [10,2]",
+    "tip 2 : fetch DiTis  1, 2 DiTi 1000ul LiHa [10,2]",
+    "tip 3 : fetch DiTis  1, 3 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 1,
+     "row": 1,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 1,
+     "row": 2,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 1,
+     "row": 3,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 1,
+     "row": 5,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 1,
+     "row": 6,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 1,
+     "row": 7,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 1,
+     "row": 8,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5370"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5370"
+    ],
+    [
+     "RPY0",
+     0,
+     "-348,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5370"
+    ],
+    [
+     "RPY0",
+     0,
+     "-348,90"
+    ],
+    [
+     "PAA2385,1040,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT247,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ]
+   ]
+  },
+  {
+   "line": 3,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis  1, 1 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 2 : drop DiTis  1, 2 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 3 : drop DiTis  1, 3 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 1,
+     "row": 1,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 1,
+     "row": 2,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 1,
+     "row": 3,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 1,
+     "row": 5,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 1,
+     "row": 6,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 1,
+     "row": 7,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 1,
+     "row": 8,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2385"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2385"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2385"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "PAA4378,612,90,1075,1075,1075,2100,1075,1075,1075,1075",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ],
+    [
+     "AST247,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 5,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis  1, 4 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 1,
+     "row": 4,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4378"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4378"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4378"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "PAA2385,1310,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT1,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ]
+   ]
+  },
+  {
+   "line": 6,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis  1, 4 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 1,
+     "row": 4,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2385"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2385"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2385"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "PAA4378,882,90,1075,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ],
+    [
+     "AST1,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 2,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis  2, 1 DiTi 1000ul LiHa [10,2]",
+    "tip 2 : fetch DiTis  2, 2 DiTi 1000ul LiHa [10,2]",
+    "tip 3 : fetch DiTis  2, 3 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 2,
+     "row": 1,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 2,
+     "row": 2,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 2,
+     "row": 3,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 2,
+     "row": 5,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 2,
+     "row": 6,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 2,
+     "row": 7,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 2,
+     "row": 8,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4378"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4378"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4378"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "PAA2475,1040,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT247,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ]
+   ]
+  },
+  {
+   "line": 3,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis  2, 1 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 2 : drop DiTis  2, 2 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 3 : drop DiTis  2, 3 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 2,
+     "row": 1,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 2,
+     "row": 2,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 2,
+     "row": 3,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 2,
+     "row": 5,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 2,
+     "row": 6,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 2,
+     "row": 7,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 2,
+     "row": 8,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2475"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2475"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2475"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "PAA4468,612,90,1075,1075,1075,2100,1075,1075,1075,1075",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ],
+    [
+     "AST247,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 5,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis  2, 4 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 2,
+     "row": 4,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4468"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4468"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4468"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "PAA2475,1310,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT1,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ]
+   ]
+  },
+  {
+   "line": 6,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis  2, 4 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 2,
+     "row": 4,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2475"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2475"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2475"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "PAA4468,882,90,1075,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ],
+    [
+     "AST1,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 2,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis  3, 1 DiTi 1000ul LiHa [10,2]",
+    "tip 2 : fetch DiTis  3, 2 DiTi 1000ul LiHa [10,2]",
+    "tip 3 : fetch DiTis  3, 3 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 3,
+     "row": 1,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 3,
+     "row": 2,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 3,
+     "row": 3,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 3,
+     "row": 5,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 3,
+     "row": 6,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 3,
+     "row": 7,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 3,
+     "row": 8,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4468"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4468"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4468"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "PAA2565,1040,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT247,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ]
+   ]
+  },
+  {
+   "line": 3,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis  3, 1 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 2 : drop DiTis  3, 2 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 3 : drop DiTis  3, 3 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 3,
+     "row": 1,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 3,
+     "row": 2,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 3,
+     "row": 3,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 3,
+     "row": 5,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 3,
+     "row": 6,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 3,
+     "row": 7,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 3,
+     "row": 8,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2565"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2565"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2565"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "PAA4558,612,90,1075,1075,1075,2100,1075,1075,1075,1075",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ],
+    [
+     "AST247,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 5,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis  3, 4 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 3,
+     "row": 4,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4558"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4558"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4558"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "PAA2565,1310,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT1,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ]
+   ]
+  },
+  {
+   "line": 6,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis  3, 4 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 3,
+     "row": 4,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2565"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2565"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2565"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "PAA4558,882,90,1075,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ],
+    [
+     "AST1,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 2,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis  4, 1 DiTi 1000ul LiHa [10,2]",
+    "tip 2 : fetch DiTis  4, 2 DiTi 1000ul LiHa [10,2]",
+    "tip 3 : fetch DiTis  4, 3 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 4,
+     "row": 1,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 4,
+     "row": 2,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 4,
+     "row": 3,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 4,
+     "row": 5,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 4,
+     "row": 6,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 4,
+     "row": 7,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 4,
+     "row": 8,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4558"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4558"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4558"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "PAA2655,1040,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT247,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ]
+   ]
+  },
+  {
+   "line": 3,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis  4, 1 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 2 : drop DiTis  4, 2 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 3 : drop DiTis  4, 3 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 4,
+     "row": 1,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 4,
+     "row": 2,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 4,
+     "row": 3,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 4,
+     "row": 5,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 4,
+     "row": 6,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 4,
+     "row": 7,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 4,
+     "row": 8,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2655"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2655"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2655"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "PAA4648,612,90,1075,1075,1075,2100,1075,1075,1075,1075",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ],
+    [
+     "AST247,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 5,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis  4, 4 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 4,
+     "row": 4,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4648"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4648"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4648"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "PAA2655,1310,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT1,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ]
+   ]
+  },
+  {
+   "line": 6,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis  4, 4 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 4,
+     "row": 4,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2655"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2655"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2655"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "PAA4648,882,90,1075,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ],
+    [
+     "AST1,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 2,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis  5, 1 DiTi 1000ul LiHa [10,2]",
+    "tip 2 : fetch DiTis  5, 2 DiTi 1000ul LiHa [10,2]",
+    "tip 3 : fetch DiTis  5, 3 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 5,
+     "row": 1,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 5,
+     "row": 2,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 5,
+     "row": 3,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 5,
+     "row": 5,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 5,
+     "row": 6,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 5,
+     "row": 7,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 5,
+     "row": 8,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4648"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4648"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4648"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "PAA2745,1040,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT247,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ]
+   ]
+  },
+  {
+   "line": 3,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis  5, 1 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 2 : drop DiTis  5, 2 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 3 : drop DiTis  5, 3 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 5,
+     "row": 1,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 5,
+     "row": 2,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 5,
+     "row": 3,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 5,
+     "row": 5,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 5,
+     "row": 6,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 5,
+     "row": 7,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 5,
+     "row": 8,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2745"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2745"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2745"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "PAA4738,612,90,1075,1075,1075,2100,1075,1075,1075,1075",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ],
+    [
+     "AST247,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 5,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis  5, 4 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 5,
+     "row": 4,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4738"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4738"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4738"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "PAA2745,1310,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT1,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ]
+   ]
+  },
+  {
+   "line": 6,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis  5, 4 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 5,
+     "row": 4,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2745"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2745"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2745"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "PAA4738,882,90,1075,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ],
+    [
+     "AST1,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 2,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis  6, 1 DiTi 1000ul LiHa [10,2]",
+    "tip 2 : fetch DiTis  6, 2 DiTi 1000ul LiHa [10,2]",
+    "tip 3 : fetch DiTis  6, 3 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 6,
+     "row": 1,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 6,
+     "row": 2,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 6,
+     "row": 3,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 6,
+     "row": 5,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 6,
+     "row": 6,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 6,
+     "row": 7,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 6,
+     "row": 8,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4738"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4738"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4738"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "PAA2835,1040,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT247,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ]
+   ]
+  },
+  {
+   "line": 3,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis  6, 1 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 2 : drop DiTis  6, 2 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 3 : drop DiTis  6, 3 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 6,
+     "row": 1,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 6,
+     "row": 2,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 6,
+     "row": 3,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 6,
+     "row": 5,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 6,
+     "row": 6,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 6,
+     "row": 7,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 6,
+     "row": 8,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2835"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2835"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2835"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "PAA4828,612,90,1075,1075,1075,2100,1075,1075,1075,1075",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ],
+    [
+     "AST247,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 5,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis  6, 4 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 6,
+     "row": 4,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4828"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4828"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4828"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "PAA2835,1310,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT1,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ]
+   ]
+  },
+  {
+   "line": 6,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis  6, 4 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 6,
+     "row": 4,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2835"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2835"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2835"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "PAA4828,882,90,1075,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ],
+    [
+     "AST1,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 2,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis  7, 1 DiTi 1000ul LiHa [10,2]",
+    "tip 2 : fetch DiTis  7, 2 DiTi 1000ul LiHa [10,2]",
+    "tip 3 : fetch DiTis  7, 3 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 7,
+     "row": 1,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 7,
+     "row": 2,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 7,
+     "row": 3,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 7,
+     "row": 5,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 7,
+     "row": 6,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 7,
+     "row": 7,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 7,
+     "row": 8,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4828"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4828"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4828"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "PAA2925,1040,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT247,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ]
+   ]
+  },
+  {
+   "line": 3,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis  7, 1 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 2 : drop DiTis  7, 2 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 3 : drop DiTis  7, 3 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 7,
+     "row": 1,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 7,
+     "row": 2,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 7,
+     "row": 3,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 7,
+     "row": 5,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 7,
+     "row": 6,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 7,
+     "row": 7,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 7,
+     "row": 8,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2925"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2925"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2925"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "PAA4918,612,90,1075,1075,1075,2100,1075,1075,1075,1075",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ],
+    [
+     "AST247,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 5,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis  7, 4 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 7,
+     "row": 4,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4918"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4918"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4918"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "PAA2925,1310,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT1,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ]
+   ]
+  },
+  {
+   "line": 6,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis  7, 4 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 7,
+     "row": 4,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2925"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2925"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "2925"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "PAA4918,882,90,1075,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ],
+    [
+     "AST1,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 2,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis  8, 1 DiTi 1000ul LiHa [10,2]",
+    "tip 2 : fetch DiTis  8, 2 DiTi 1000ul LiHa [10,2]",
+    "tip 3 : fetch DiTis  8, 3 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 8,
+     "row": 1,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 8,
+     "row": 2,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 8,
+     "row": 3,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 8,
+     "row": 5,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 8,
+     "row": 6,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 8,
+     "row": 7,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 8,
+     "row": 8,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4918"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4918"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "4918"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "PAA3015,1040,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT247,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ]
+   ]
+  },
+  {
+   "line": 3,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis  8, 1 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 2 : drop DiTis  8, 2 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 3 : drop DiTis  8, 3 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 8,
+     "row": 1,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 8,
+     "row": 2,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 8,
+     "row": 3,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 8,
+     "row": 5,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 8,
+     "row": 6,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 8,
+     "row": 7,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 8,
+     "row": 8,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3015"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3015"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3015"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "PAA5008,612,90,1075,1075,1075,2100,1075,1075,1075,1075",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ],
+    [
+     "AST247,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 5,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis  8, 4 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 8,
+     "row": 4,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5008"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5008"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5008"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "PAA3015,1310,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT1,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ]
+   ]
+  },
+  {
+   "line": 6,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis  8, 4 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 8,
+     "row": 4,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3015"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3015"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3015"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "PAA5008,882,90,1075,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ],
+    [
+     "AST1,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 2,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis  9, 1 DiTi 1000ul LiHa [10,2]",
+    "tip 2 : fetch DiTis  9, 2 DiTi 1000ul LiHa [10,2]",
+    "tip 3 : fetch DiTis  9, 3 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 9,
+     "row": 1,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 9,
+     "row": 2,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 9,
+     "row": 3,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 9,
+     "row": 5,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 9,
+     "row": 6,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 9,
+     "row": 7,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 9,
+     "row": 8,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5008"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5008"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5008"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "PAA3105,1040,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT247,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ]
+   ]
+  },
+  {
+   "line": 3,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis  9, 1 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 2 : drop DiTis  9, 2 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 3 : drop DiTis  9, 3 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 9,
+     "row": 1,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 9,
+     "row": 2,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 9,
+     "row": 3,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 9,
+     "row": 5,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 9,
+     "row": 6,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 9,
+     "row": 7,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 9,
+     "row": 8,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3105"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3105"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3105"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "PAA5098,612,90,1075,1075,1075,2100,1075,1075,1075,1075",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ],
+    [
+     "AST247,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 5,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis  9, 4 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 9,
+     "row": 4,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5098"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5098"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5098"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "PAA3105,1310,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT1,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ]
+   ]
+  },
+  {
+   "line": 6,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis  9, 4 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 9,
+     "row": 4,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3105"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3105"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3105"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "PAA5098,882,90,1075,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ],
+    [
+     "AST1,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 2,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis 10, 1 DiTi 1000ul LiHa [10,2]",
+    "tip 2 : fetch DiTis 10, 2 DiTi 1000ul LiHa [10,2]",
+    "tip 3 : fetch DiTis 10, 3 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 10,
+     "row": 1,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 10,
+     "row": 2,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 10,
+     "row": 3,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 10,
+     "row": 5,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 10,
+     "row": 6,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 10,
+     "row": 7,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 10,
+     "row": 8,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5098"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5098"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5098"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "PAA3195,1040,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT247,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ]
+   ]
+  },
+  {
+   "line": 3,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis 10, 1 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 2 : drop DiTis 10, 2 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 3 : drop DiTis 10, 3 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 10,
+     "row": 1,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 10,
+     "row": 2,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 10,
+     "row": 3,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 10,
+     "row": 5,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 10,
+     "row": 6,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 10,
+     "row": 7,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 10,
+     "row": 8,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3195"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3195"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3195"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "PAA5188,612,90,1075,1075,1075,2100,1075,1075,1075,1075",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ],
+    [
+     "AST247,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 5,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis 10, 4 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 10,
+     "row": 4,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5188"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5188"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5188"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "PAA3195,1310,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT1,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ]
+   ]
+  },
+  {
+   "line": 6,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis 10, 4 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 10,
+     "row": 4,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3195"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3195"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3195"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "PAA5188,882,90,1075,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ],
+    [
+     "AST1,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 2,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis 11, 1 DiTi 1000ul LiHa [10,2]",
+    "tip 2 : fetch DiTis 11, 2 DiTi 1000ul LiHa [10,2]",
+    "tip 3 : fetch DiTis 11, 3 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 11,
+     "row": 1,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 11,
+     "row": 2,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 11,
+     "row": 3,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 11,
+     "row": 5,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 11,
+     "row": 6,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 11,
+     "row": 7,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 11,
+     "row": 8,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5188"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5188"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5188"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "PAA3285,1040,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT247,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ]
+   ]
+  },
+  {
+   "line": 3,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis 11, 1 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 2 : drop DiTis 11, 2 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 3 : drop DiTis 11, 3 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 11,
+     "row": 1,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 11,
+     "row": 2,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 11,
+     "row": 3,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 11,
+     "row": 5,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 11,
+     "row": 6,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 11,
+     "row": 7,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 11,
+     "row": 8,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3285"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3285"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3285"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "PAA5278,612,90,1075,1075,1075,2100,1075,1075,1075,1075",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ],
+    [
+     "AST247,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 5,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis 11, 4 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 11,
+     "row": 4,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5278"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5278"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5278"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "PAA3285,1310,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT1,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ]
+   ]
+  },
+  {
+   "line": 6,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis 11, 4 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 11,
+     "row": 4,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3285"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3285"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3285"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "PAA5278,882,90,1075,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ],
+    [
+     "AST1,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 2,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis 12, 1 DiTi 1000ul LiHa [10,2]",
+    "tip 2 : fetch DiTis 12, 2 DiTi 1000ul LiHa [10,2]",
+    "tip 3 : fetch DiTis 12, 3 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 12,
+     "row": 1,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 12,
+     "row": 2,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 12,
+     "row": 3,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 12,
+     "row": 5,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 12,
+     "row": 6,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 12,
+     "row": 7,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 12,
+     "row": 8,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5278"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5278"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5278"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "PAA3375,1040,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT247,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ]
+   ]
+  },
+  {
+   "line": 3,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis 12, 1 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 2 : drop DiTis 12, 2 Marie DiTi 1000ul LiHa Fluen [18,2]",
+    "tip 3 : drop DiTis 12, 3 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 12,
+     "row": 1,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 2,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 12,
+     "row": 2,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 3,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 12,
+     "row": 3,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 5,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 12,
+     "row": 5,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 6,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 12,
+     "row": 6,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 7,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 12,
+     "row": 7,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    },
+    {
+     "tip": 8,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 12,
+     "row": 8,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3375"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3375"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3375"
+    ],
+    [
+     "RPY0",
+     0,
+     "1040,90"
+    ],
+    [
+     "PAA5368,612,90,1075,1075,1075,2100,1075,1075,1075,1075",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "247"
+    ],
+    [
+     "AST247,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 5,
+   "step": "Pick Up DiTis",
+   "notes": [
+    "tip 1 : fetch DiTis 12, 4 DiTi 1000ul LiHa [10,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "fetch DiTis",
+     "volume": null,
+     "column": 12,
+     "row": 4,
+     "labware": "DiTi 1000ul LiHa",
+     "grid": 10,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5368"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5368"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5368"
+    ],
+    [
+     "RPY0",
+     0,
+     "612,90"
+    ],
+    [
+     "PAA3375,1310,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "AGT1,768,210,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ]
+   ]
+  },
+  {
+   "line": 6,
+   "step": "Set DiTis Back",
+   "notes": [
+    "tip 1 : drop DiTis 12, 4 Marie DiTi 1000ul LiHa Fluen [18,2]"
+   ],
+   "tips": [
+    {
+     "tip": 1,
+     "action": "drop DiTis",
+     "volume": null,
+     "column": 12,
+     "row": 4,
+     "labware": "Marie DiTi 1000ul LiHa Fluen",
+     "grid": 18,
+     "site": 2
+    }
+   ],
+   "liquid_class": null,
+   "commands": [
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3375"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3375"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "3375"
+    ],
+    [
+     "RPY0",
+     0,
+     "1310,90"
+    ],
+    [
+     "PAA5368,882,90,1075,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "1"
+    ],
+    [
+     "AST1,0",
+     0,
+     ""
+    ],
+    [
+     "RTS",
+     0,
+     "0"
+    ]
+   ]
+  },
+  {
+   "line": 8,
+   "step": "End Loop",
+   "notes": [
+    "Should EVOware move all arms to their home positions?",
+    "button Yes has been pressed",
+    "SHUTTING DOWN INSTRUMENTS"
+   ],
+   "tips": [],
+   "liquid_class": null,
+   "commands": [
+    [
+     "RPZ5",
+     0,
+     "2100,2100,2100,2100,2100,2100,2100,2100"
+    ],
+    [
+     "PAZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5368"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "PAY882",
+     0,
+     ""
+    ],
+    [
+     "PAX5270",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5270"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ],
+    [
+     "RPX0",
+     0,
+     "5270"
+    ],
+    [
+     "RPY0",
+     0,
+     "882,90"
+    ],
+    [
+     "SHZ2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "PAA-18,748,90,2100,2100,2100,2100,2100,2100,2100,2100",
+     0,
+     ""
+    ],
+    [
+     "SSM1",
+     0,
+     ""
+    ]
+   ]
+  }
+ ]
+}

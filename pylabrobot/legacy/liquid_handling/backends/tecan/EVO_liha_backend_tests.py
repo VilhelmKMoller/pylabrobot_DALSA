@@ -23,7 +23,7 @@ from pylabrobot.legacy.liquid_handling.backends.tecan.liha_firmware import LihaF
 from pylabrobot.legacy.liquid_handling.backends.tecan.liha_tests import DATA
 from pylabrobot.legacy.liquid_handling.backends.tecan.mca_tests import _TipDiameter
 from pylabrobot.legacy.liquid_handling.errors import ChannelizedError
-from pylabrobot.legacy.liquid_handling.standard import SingleChannelDispense
+from pylabrobot.legacy.liquid_handling.standard import Drop, SingleChannelDispense
 from pylabrobot.legacy.tip_tracker import TipTracker
 from pylabrobot.resources import Coordinate, DeepWell_96_Well, EVO200Deck, Trash
 from pylabrobot.resources.errors import HasTipError, NoTipError
@@ -430,10 +430,56 @@ class LihaOperationTests(_TipDiameter, _Backend):
     self.assertIsInstance(ctx.exception.errors[0], HasTipError)
     self.assertEqual(self.c5(), ["RTS"])
 
-  async def test_return_to_rack_not_supported(self):
+  async def test_return_tips_sets_them_back_and_they_can_be_picked_up_again(self):
+    """EVOware "Set DiTis Back": the fetch position at Z 1075, AST; then "Pick Up DiTis" = fetch."""
+    tips = list(range(1, 9))
+    await self.lh.pick_up_tips(self.rack["A3:H3"])
+    plunger = list(self.fake.plunger)
+    self.fake.sent.clear()
+    await self.lh.return_tips()
+    expected = liha.plan_strings(liha.plan_set_ditis_back(self.geo, RACK, 3, 1, tips))
+    fetch = liha.plan_strings(liha.plan_get_ditis(self.geo, RACK, 3, 1, tips))
+    paa = next(c for c in fetch if c.startswith("PAA"))
+    self.assertIn(paa.rsplit(",", 8)[0] + "," + ",".join(["1075"] * 8), expected)
+    self.assertEqual(self.moves(), self.without_rts(expected))
+    self.assertEqual(self.c5("AST"), ["AST255,0"])
+    self.assertEqual(self.fake.mounted, 0)
+    self.assertEqual(self.fake.plunger, plunger)  # the plungers are not touched
+    self.assertTrue(all(self.rack.get_item(f"{r}3").has_tip() for r in "ABCDEFGH"))
+    self.fake.sent.clear()
+    await self.lh.pick_up_tips(self.rack["A3:H3"])
+    self.assertEqual(self.moves(), self.without_rts(fetch))
+    self.assertEqual(self.fake.mounted, 255)
+
+  async def test_set_back_partial_column_and_box_correction(self):
+    box = self._conductive_box()
+    await self.lh.pick_up_tips(box["C5:E5"], use_channels=[2, 3, 4])
+    self.fake.sent.clear()
+    await self.lh.drop_tips(box["C5:E5"], use_channels=[2, 3, 4])
+    z = ["2100", "2100", "1075", "1075", "1075", "2100", "2100", "2100"]
+    # X includes the box's +3 mm; the eject Z is EVOware's fixed 1075 (no box Z correction)
+    self.assertEqual(self.c5("PAA"), ["PAA11737,-348,90," + ",".join(z)])
+    self.assertEqual(self.c5("AST"), ["AST28,0"])
+    self.assertEqual(self.fake.mounted, 0)
+
+  async def test_set_back_refused_with_liquid_in_the_tips(self):
     await self.lh.pick_up_tips(self.rack["A1:H1"])
-    with self.assertRaisesRegex(NotImplementedError, "DiTi waste"):
-      await self.lh.return_tips()
+    await self.lh.aspirate([self.trough.get_item(0)] * 8, vols=[150] * 8, spread="custom")
+    self.fake.sent.clear()
+    with self.assertRaisesRegex(RuntimeError, "dispense first"):
+      await self.backend.drop_tips(
+        [
+          Drop(
+            resource=self.rack.get_item(f"{r}1"),
+            offset=Coordinate.zero(),
+            tip=self.lh.head[i].get_tip(),
+          )
+          for i, r in enumerate("ABCDEFGH")
+        ],
+        list(range(8)),
+      )
+    self.assertEqual(self.c5(), [])
+    self.assertEqual(self.fake.mounted, 255)
 
   async def test_site_offset_moves_only_that_site(self):
     self.backend.liha_site_offsets[RACK] = (10, 0)
