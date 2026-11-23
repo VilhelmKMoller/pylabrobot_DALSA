@@ -12,6 +12,7 @@ positions RPP0). Our plunger bookkeeping is checked against every RPP0 EVOware r
   refused / not planned / instrument error   steps outside what the planners do
 """
 
+import collections
 import dataclasses
 import json
 import re
@@ -50,6 +51,12 @@ SMOOTH_MOVE = (
   " (2024-09-24/25, 2026-06-16) for every DiTi step type; SSM0 in 654 of 756 logged DiTi steps"
 )
 
+UNUSED_TIP_TRAVEL = (
+  "single tip 2-4 aspirating alone: identical move and liquid values, but EVOware first re-sends"
+  " SSM1/SSM0 and sets the travel height (SHZ before MDT) of the unused tips too (1461 over the"
+  " plate, 635 beyond its last row); we keep unused tips at the Z range; MDT Zadd +-1 (plate model)"
+)
+
 EXPECTED: Dict[str, Dict[int, str]] = {
   "EVO_20260409_115221.json": {
     25: TROUGH_300,
@@ -60,9 +67,12 @@ EXPECTED: Dict[str, Dict[int, str]] = {
     25: TROUGH_300,
     75: END_OF_RUN,
   },
-  # single-tip set back / pick up; every other pair uses tips that are not consecutive (refused)
-  "EVO_20260616_175039.json": {i: SMOOTH_MOVE for i in range(48) if i % 4 in (2, 3)},
+  # every step: single tip 1, or tips 1-3 and 5-8 (tip 4 left out)
+  "EVO_20260616_175039.json": {i: SMOOTH_MOVE for i in range(48)},
   "EVO_20261117_114851.json": {},
+  # checker pattern: per loop Get DiTis, Mix (refused or error), tips 1-4 aspirate one by one,
+  # one Dispense of tips 1-4 over rows 2, 4, 6, 8 (row stride 2), Drop DiTis
+  "EVO_20260205_141912.json": {i: UNUSED_TIP_TRAVEL for i in range(121) if i % 10 in (3, 4, 5)},
 }
 
 
@@ -240,8 +250,9 @@ class Replay:
         self.results.append((index, name, "plunger", (tracked, [read[t - 1] for t in tips])))
       site = self.site(first)
       assert self.diti is not None, "dispense without DiTis"
+      stride = notes[1]["row"] - notes[0]["row"] if len(notes) > 1 else 1
       disp = liha.plan_dispense(
-        self.geo, lc, site, first["column"], first["row"], tips, self.diti, read
+        self.geo, lc, site, first["column"], first["row"], tips, self.diti, read, stride
       )
       plan = plan_strings(disp.first)
       if disp.finish_args is not None:
@@ -358,10 +369,17 @@ class ReplayTests(unittest.TestCase):
     steps = [(step.split()[0], outcome) for _, step, outcome, _ in self.results]
     self.assertEqual(steps.count(("Set", "same")), 72)
     self.assertEqual(steps.count(("Pick", "same")), 72)
+    # 2026-06-16: tips 1-3 and 5-8 (mask 247) and single tips; only its session's SSM1 differs
     self.replay("EVO_20260616_175039.json")
-    refused = [d for _, _, outcome, d in self.results if outcome == "refused"]
-    self.assertEqual(len(refused), 24)
-    self.assertTrue(all("consecutive tips" in str(d) for d in refused))
+    self.assertFalse(any(o == "refused" for _, _, o, _ in self.results))
+
+  def test_checker_pattern_row_stride_dispense(self):
+    """REFINES checker pattern 2026-02-05: every Dispense puts tips 1-4 over rows 2, 4, 6, 8 (PAA
+    spacing 181 on a 9.05 mm plate); all 12 identical, as are the 12 Get DiTis."""
+    self.replay("EVO_20260205_141912.json")
+    outcomes = collections.Counter((step, o) for _, step, o, _ in self.results)
+    self.assertEqual(outcomes[("Dispense", "same")], 12)
+    self.assertEqual(outcomes[("Get DiTis", "same")], 12)
 
   def test_planners_for_the_2026_11_24_deck(self):
     """The deck for the visual validation: plain 1000 ul DiTis at grid 46 site 1 (MCA carrier),
@@ -405,8 +423,20 @@ class ReplayTests(unittest.TestCase):
     config = evoware_config.load(HERE / "evoware")
     geo = LihaGeometry(config, 2100)
     rack = LihaSite(46, 0, "MCA96 Carrier 4 pos", "DiTi 1000ul LiHa")
-    with self.assertRaises(NotImplementedError):
-      liha.plan_get_ditis(geo, rack, 1, 1, [1, 3])
+    # tips may be left out for DiTi steps (logged), not for liquid steps (never logged)
+    self.assertIn("AGT5,783,210,0", plan_strings(liha.plan_get_ditis(geo, rack, 1, 1, [1, 3])))
+    with self.assertRaisesRegex(NotImplementedError, "consecutive"):
+      liha.plan_aspirate(
+        geo,
+        LiquidClassLibrary.from_database(HERE / "evoware").liha("Water free dispense", 150),
+        LihaSite(15, 2, "MP 3Pos", "Trough 300ml MCA96"),
+        1,
+        1,
+        [1, 3],
+        150,
+        "DiTi 1000ul LiHa",
+        [30] * 8,
+      )
     with self.assertRaises(ValueError):
       liha.plan_get_ditis(geo, rack, 1, 1, [0])
     lc = LiquidClassLibrary.from_database(HERE / "evoware").liha("Water free dispense", 150)

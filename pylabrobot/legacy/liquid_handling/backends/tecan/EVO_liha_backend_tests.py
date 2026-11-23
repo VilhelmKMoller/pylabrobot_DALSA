@@ -462,6 +462,45 @@ class LihaOperationTests(_TipDiameter, _Backend):
     self.assertEqual(self.c5("AST"), ["AST28,0"])
     self.assertEqual(self.fake.mounted, 0)
 
+  async def test_ditis_with_a_channel_left_out(self):
+    """Get DiTis / Set DiTis Back with tips 1-3 and 5 (EVOware: mask 247 and 23 logged)."""
+    spots = [self.rack.get_item(w) for w in ("A1", "B1", "C1", "E1")]
+    await self.lh.pick_up_tips(spots, use_channels=[0, 1, 2, 4])
+    self.assertEqual(self.c5("AGT"), ["AGT23,783,210,0"])
+    self.assertEqual(self.fake.mounted, 23)
+    self.fake.sent.clear()
+    await self.lh.drop_tips(spots, use_channels=[0, 1, 2, 4])
+    z = ["1075"] * 3 + ["2100", "1075"] + ["2100"] * 3
+    self.assertEqual(self.c5("PAA"), ["PAA11347,-348,90," + ",".join(z)])
+    self.assertEqual(self.c5("AST"), ["AST23,0"])
+    # liquid steps with a channel left out were never logged: refused before anything is sent
+    await self.lh.pick_up_tips(spots, use_channels=[0, 1, 2, 4])
+    self.fake.sent.clear()
+    with self.assertRaisesRegex(NotImplementedError, "consecutive"):
+      await self.lh.aspirate(
+        [self.trough.get_item(0)] * 4, vols=[100] * 4, spread="custom", use_channels=[0, 1, 2, 4]
+      )
+    self.assertEqual(self.c5(), ["RTS", "RPP0"])  # tip and plunger reads only
+
+  async def test_dispense_over_every_second_row(self):
+    """EVOware's checker pattern: tips 1-4 over rows B, D, F, H, spacing twice the row pitch."""
+    tips = [1, 2, 3, 4]
+    lc = self.lib.liha("Water free dispense", 100)
+    await self.lh.pick_up_tips(self.rack["A1:D1"], use_channels=[0, 1, 2, 3])
+    await self.lh.aspirate(
+      [self.trough.get_item(0)] * 4, vols=[100] * 4, spread="custom", use_channels=[0, 1, 2, 3]
+    )
+    held = list(self.fake.plunger)
+    self.fake.sent.clear()
+    wells = [self.plate.get_item(w) for w in ("B1", "D1", "F1", "H1")]
+    await self.lh.dispense(wells, vols=[100] * 4, use_channels=[0, 1, 2, 3])
+    disp = liha.plan_dispense(self.geo, lc, PLATE, 1, 2, tips, DITI, held, row_stride=2)
+    self.assertEqual(self.moves(), self.without_rts(liha.plan_strings(disp.first)))
+    spacing = self.geo.y_spacing(PLATE)
+    self.assertEqual(int(self.c5("PAA")[0].split(",")[2]), 2 * spacing)
+    with self.assertRaisesRegex(NotImplementedError, "consecutive rows"):
+      await self.lh.aspirate(wells, vols=[100] * 4, use_channels=[0, 1, 2, 3])
+
   async def test_set_back_refused_with_liquid_in_the_tips(self):
     await self.lh.pick_up_tips(self.rack["A1:H1"])
     await self.lh.aspirate([self.trough.get_item(0)] * 8, vols=[150] * 8, spread="custom")

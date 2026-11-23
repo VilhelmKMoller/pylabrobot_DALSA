@@ -197,13 +197,16 @@ class LihaGeometry:
     row = (lw.y2 - lw.y1) / (lw.rows - 1) if lw.rows > 1 else 0.0
     return col, row
 
-  def y_spacing(self, where: LihaSite) -> int:
-    """Tip spacing EVOware uses on this labware: the row pitch, or 90 for one-position labware."""
+  def y_spacing(self, where: LihaSite, row_stride: int = 1) -> int:
+    """Tip spacing EVOware uses on this labware: the row pitch (times ``row_stride`` when the tips
+    go over every ``row_stride``-th row), or 90 for one-position labware."""
     _, _, lw = self._parts(where)
     _, row = self._pitches(lw)
     if row == 0:
+      if row_stride != 1:
+        raise ValueError(f"{where.labware} has one row; row_stride must be 1")
       return DEFAULT_Y_SPACING
-    spacing = _round(row)
+    spacing = _round(row_stride * row)
     if not MIN_Y_SPACING <= spacing <= MAX_Y_SPACING:
       raise NotImplementedError(
         f"{where.labware}: row pitch {row:.1f} is outside the LiHa Y spacing {MIN_Y_SPACING}..{MAX_Y_SPACING};"
@@ -211,9 +214,14 @@ class LihaGeometry:
       )
     return spacing
 
-  def tips(self, where: LihaSite, column: int = 1, row: int = 1, tip: int = 1) -> Position:
+  def tips(
+    self, where: LihaSite, column: int = 1, row: int = 1, tip: int = 1, row_stride: int = 1
+  ) -> Position:
     """PAA position that puts ``tip`` (1-based) over well (``column``, ``row``) (1-based) and the
-    following tips over the following rows."""
+    following tips over the following rows, or over every ``row_stride``-th row (EVOware: tips 1-4
+    over rows 2, 4, 6, 8 with PAA spacing 180 on a 9 mm plate)."""
+    if row_stride < 1:
+      raise ValueError("row_stride must be at least 1")
     carrier, site, lw = self._parts(where)
     n_cols = self.columns(lw)
     if not 1 <= column <= n_cols or not 1 <= row <= lw.rows:
@@ -221,7 +229,7 @@ class LihaGeometry:
     if not 1 <= tip <= self.machine.tip_count:
       raise ValueError(f"tip must be 1..{self.machine.tip_count}")
     col_pitch, row_pitch = self._pitches(lw)
-    spacing = self.y_spacing(where)
+    spacing = self.y_spacing(where, row_stride)
     x = GRID_PITCH * (where.grid - 1) + site.x + lw.x1 - carrier.x + (column - 1) * col_pitch
     y = site.y + lw.y1 - carrier.y + (row - 1) * row_pitch - (tip - 1) * spacing
     dx, dy = self.offsets.get(where, (0, 0))
@@ -394,12 +402,17 @@ def tip_mask(tips: Sequence[int]) -> int:
   return sum(1 << (t - 1) for t in set(tips))
 
 
-def _check_tips(tips: Sequence[int], n: int) -> List[int]:
+def _check_tips(tips: Sequence[int], n: int, gaps: bool = False) -> List[int]:
+  """Sorted 1-based tips. ``gaps``: tips may be left out (e.g. 1, 2, 3, 5); the others keep their
+  places, tip t over row ``row + (t - first tip)`` (logged for DiTi steps only: 16 Pick Up DiTis and
+  24 Set DiTis Back with mask 247 or 23, EVO_20260616_174054 and _175039)."""
   tips = sorted(tips)
-  if not tips or tips[0] < 1 or tips[-1] > n:
-    raise ValueError(f"tips must be within 1..{n}")
-  if tips != list(range(tips[0], tips[0] + len(tips))):
-    raise NotImplementedError("only consecutive tips (one column, consecutive rows) are supported")
+  if not tips or tips[0] < 1 or tips[-1] > n or len(set(tips)) != len(tips):
+    raise ValueError(f"tips must be distinct and within 1..{n}")
+  if not gaps and tips != list(range(tips[0], tips[0] + len(tips))):
+    raise NotImplementedError(
+      "only consecutive tips (one column, consecutive rows) are supported for this step"
+    )
   return tips
 
 
@@ -451,7 +464,7 @@ def plan_get_ditis(
   EVOware did so in 44 of 45 logged fetches in sessions where it polled the RoMa, and never
   otherwise; this instrument has a RoMa, so it is the default."""
   n = geo.machine.tip_count
-  tips = _check_tips(tips, n)
+  tips = _check_tips(tips, n, gaps=True)
   fetch = geo.diti_fetch(rack, column, row, tips[0])
   plan = Plan()
   plan.add("SSM", 1)
@@ -485,7 +498,7 @@ def plan_set_ditis_back(
   the last RTS: the tips must be gone. Pick the DiTis up again with ``plan_get_ditis`` (EVOware's
   "Pick Up DiTis" sends the same commands: 255 of 257 logged steps)."""
   n = geo.machine.tip_count
-  tips = _check_tips(tips, n)
+  tips = _check_tips(tips, n, gaps=True)
   pos = geo.diti_fetch(rack, column, row, tips[0]).position
   plan = Plan()
   plan.add("SSM", 1)
@@ -724,10 +737,13 @@ def plan_dispense(
   tips: Sequence[int],
   diti: str,
   plunger: Sequence[int],
+  row_stride: int = 1,
 ) -> DispensePlan:
   """EVOware "Dispense", single mode: free dispense at z_dispense, or wet contact (liquid detection,
   MET, then tracking up). Dispenses everything above the STAG (``dispense_steps``); ``plunger`` is the
-  RPP0 reading EVOware takes before dispensing."""
+  RPP0 reading EVOware takes before dispensing. ``row_stride``: the tips go over every
+  ``row_stride``-th row (``LihaGeometry.tips``; logged: 39 dispenses with tips 1-4 over rows
+  2, 4, 6, 8, checker pattern)."""
   n = geo.machine.tip_count
   tips = _check_tips(tips, n)
   if len(plunger) != n:
@@ -744,7 +760,7 @@ def plan_dispense(
   )
   fw = _lc_values(lc, geo)
   m = lc.single
-  pos = geo.tips(site, column, row, tips[0])
+  pos = geo.tips(site, column, row, tips[0], row_stride)
   _, _, lw = geo._parts(site)
   steps = dispense_steps(lc, geo, plunger, tips)
   speed, breakoff = fw.speed(m.dispense_speed), fw.speed(m.breakoff_speed)

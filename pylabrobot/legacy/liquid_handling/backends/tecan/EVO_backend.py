@@ -209,6 +209,7 @@ class EVOBackend(TecanLiquidHandler):
 
   # (site, column, row, tips, Z) after a successful liha_mix; any other LiHa operation clears it
   _liha_mixed: Optional[tuple] = None
+  _liha_last_stride: int = 1
 
   def __init__(
     self,
@@ -584,11 +585,14 @@ class EVOBackend(TecanLiquidHandler):
     return site
 
   def _liha_target(
-    self, ops: Sequence, use_channels: List[int], trough_column: int = 1
+    self, ops: Sequence, use_channels: List[int], trough_column: int = 1, row_stride: bool = False
   ) -> Tuple["liha.LihaSite", int, int, List[int]]:
     """EVOware site, column and row for tip ``tips[0]`` of ops on consecutive channels.
 
-    Wells/tip spots must be consecutive rows of one column, channel order = row order. On a
+    Wells/tip spots must be consecutive rows of one column, channel order = row order; a channel
+    left out leaves its row out (tips 1, 2, 4 over rows 1, 2, 4; the planner decides whether that is
+    supported). With ``row_stride`` the tips may go over every k-th row instead (tips 1-4 over rows
+    2, 4, 6, 8); ``self._liha_last_stride`` is set to k. On a
     one-well labware (trough) EVOware's own tip positions are used: ``trough_column`` (1-based, of
     the columns EVOware addresses, 12 for "Trough 300ml MCA96") with tip n over row n; the Y offsets
     LiquidHandler computes to spread channels over a single well are therefore ignored, and other
@@ -608,6 +612,7 @@ class EVOBackend(TecanLiquidHandler):
       for op in ops:
         if op.offset.x != 0 or op.offset.z != 0:
           raise NotImplementedError(f"offsets are not supported on {lw.name}, got {op.offset}")
+      self._liha_last_stride = 1
       return site, trough_column, tips[0], tips
     for op in ops:
       if op.offset != Coordinate.zero():
@@ -621,11 +626,16 @@ class EVOBackend(TecanLiquidHandler):
         raise ValueError(f"{op.resource.name} is not an item of {lw.name}")
       places.append(divmod(index, lw.num_items_y))  # (column, row), 0-based, column-major
     column, row = places[0]
+    stride = 1
+    if row_stride and len(places) > 1 and tips[1] - tips[0] == 1:
+      stride = max(1, places[1][1] - row)
     for (c, r), tip in zip(places, tips):
-      if c != column or r - row != tip - tips[0]:
+      if c != column or r - row != stride * (tip - tips[0]):
         raise NotImplementedError(
           "LiHa channels must be over consecutive rows of one column, in channel order"
+          + (" (or every k-th row)" if row_stride else "")
         )
+    self._liha_last_stride = stride
     return site, column + 1, row + 1, tips
 
   def _liha_errors(self, exc: TecanLihaError, use_channels: List[int], requested: int = 0):
@@ -856,12 +866,16 @@ class EVOBackend(TecanLiquidHandler):
   ):
     """EVOware "Dispense", single mode: free or wet contact as the aspiration's liquid class says.
 
+    The channels may go over every k-th row of one column (e.g. channels 0-3 over rows B, D, F, H;
+    EVOware's checker pattern), with the tip spacing k times the row pitch.
+
     Dispenses everything the channels aspirated (EVOware dispenses all but the system trailing air
     gap), so ``volume`` must equal the aspirated volume.
     """
     self._liha_mixed = None
     volume = self._liha_check_ops(ops)
-    site, column, row, tips = self._liha_target(ops, use_channels, trough_column)
+    site, column, row, tips = self._liha_target(ops, use_channels, trough_column, row_stride=True)
+    stride = self._liha_last_stride
     contents = self._liha_contents()
     held = {contents.get(c) for c in use_channels}
     if len(held) != 1 or None in held or UNKNOWN in held:
@@ -878,7 +892,7 @@ class EVOBackend(TecanLiquidHandler):
     diti = self._liha_diti(ops)
     await self._liha_require_tips(use_channels, mounted=True)
     plunger = await self._liha_report("RPP", 0)
-    plan = liha.plan_dispense(geo, lc, site, column, row, tips, diti, plunger)
+    plan = liha.plan_dispense(geo, lc, site, column, row, tips, diti, plunger, stride)
     for channel in use_channels:
       contents[channel] = UNKNOWN
     await self._liha_execute(plan.first, use_channels)
