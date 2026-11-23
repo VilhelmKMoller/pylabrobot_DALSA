@@ -2469,3 +2469,32 @@ def DiTi_Nest_4_Pos_LiHa_10_F(name: str) -> TecanTipCarrier:
     ),
     model="DiTi_Nest_4_Pos_LiHa_10_F",
   )
+
+
+def MCA96_Carrier_4_pos(name: str) -> TecanTipCarrier:
+  """Tecan part no. 30020006 (EVOware "MCA96 Carrier 4 pos", carrier id 325).
+
+  Same footprint as DiTi_SBS_4_Pos_MCA96 but with per-site X offsets (EVOware
+  sites 1-4 at x 10.0/9.8/9.4/9.2 mm). Site index 0 is the front site (EVOware site 4).
+  """
+  return TecanTipCarrier(
+    name=name,
+    size_x=149.0,
+    size_y=380.0,
+    size_z=6.0,
+    off_x=12.5,
+    off_y=51.5,
+    sites=create_homogeneous_resources(
+      klass=ResourceHolder,
+      locations=[
+        Coordinate(9.2, 3.0, 6.0),
+        Coordinate(9.4, 99.0, 6.0),
+        Coordinate(9.8, 195.0, 6.0),
+        Coordinate(10.0, 291.0, 6.0),
+      ],
+      resource_size_x=127.0,
+      resource_size_y=85.5,
+      name_prefix=name,
+    ),
+    model="MCA96_Carrier_4_pos",
+  )

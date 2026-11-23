@@ -1,0 +1,49 @@
+{
+ "source": "Every 'Drop DiTis' step to the chute (DropDITI grid 1) in the EVOware AuditTrail logs: the PAA before AST, with counts.",
+ "drops": [
+  {
+   "count": 107,
+   "paa": "PAA126,2810,90,1075,1075,1075,1075,1075,1075,1075,1075",
+   "ast": "AST255,0",
+   "log": "EVO_20240924_105843.LOG"
+  },
+  {
+   "count": 9,
+   "paa": "PAA126,2810,90,1075,2100,2100,2100,2100,2100,2100,2100",
+   "ast": "AST1,0",
+   "log": "EVO_20250908_135018.LOG"
+  },
+  {
+   "count": 3,
+   "paa": "PAA126,2810,90,1075,1075,2100,2100,2100,2100,2100,2100",
+   "ast": "AST3,0",
+   "log": "EVO_20251105_141457.LOG"
+  },
+  {
+   "count": 1,
+   "paa": "PAA126,2810,90,2100,2100,2100,2100,2100,2100,2100,1075",
+   "ast": "AST128,0",
+   "log": "EVO_20240924_105658.LOG"
+  },
+  {
+   "count": 1,
+   "paa": "PAA126,2810,90,1075,1075,1075,2100,2100,2100,2100,2100",
+   "ast": "AST7,0",
+   "log": "EVO_20251105_135904.LOG"
+  },
+  {
+   "count": 1,
+   "paa": "PAA126,2495,90,1075,2100,2100,2100,2100,2100,2100,2100",
+   "ast": "AST1,0",
+   "log": "EVO_20240924_103611.LOG",
+   "expected_mismatch": "config-editing session 2024-09-24"
+  },
+  {
+   "count": 1,
+   "paa": "PAA126,2495,90,2100,2100,2100,2100,2100,2100,2100,1075",
+   "ast": "AST128,0",
+   "log": "EVO_20240924_104158.LOG",
+   "expected_mismatch": "config-editing session 2024-09-24"
+  }
+ ]
+}

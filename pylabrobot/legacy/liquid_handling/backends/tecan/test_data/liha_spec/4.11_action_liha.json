@@ -1,0 +1,343 @@
+{
+  "section": "4.11",
+  "title": "Action Commands (LIHA Specific Functionality)",
+  "commands": [
+    {
+      "code": "PIA", "name": "Position Initialization X/Y/Z-Axis", "page": 54, "syntax": "PIA Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 1, "default": 0, "description": "0 normal initialization, 1 X-axis does not participate (after PIB)"}],
+      "return_codes": [0, 1, 3, 5, 29, 30], "status": "implement", "moves_x": true,
+      "note": "First init: all Z at the current X/Y, then Y/Ys, then X, then Z again. Further init: Z up first."
+    },
+    {
+      "code": "PIB", "name": "Position Pre Initialization", "page": 54, "syntax": "PIB", "params": [],
+      "return_codes": [0, 1, 3, 29], "status": "implement",
+      "note": "Brings Y to the front to avoid obstacles at the back. Afterwards every axis except X is not initialized; normally followed by PIA1."
+    },
+    {
+      "code": "PIF", "name": "Fake Initialization X/Y/Z-Axis", "page": 55, "syntax": "PIF", "params": [],
+      "return_codes": [0, 3, 30], "status": "excluded",
+      "exclude_reason": "Marks the axes initialized without any mechanical initialization. Spec: incorrect use may damage the instrument."
+    },
+    {
+      "code": "PIX", "name": "Position Initialization X-Axis", "page": 55, "syntax": "PIX InitSpeed*, (Range, Offset)",
+      "params": [
+        {"name": "InitSpeed", "min": 5, "max": 1500, "default": 400, "optional": true, "unit": "0.1 mm/s"},
+        {"name": "Range", "min": -1000000, "max": 1000000, "default": "SRX", "excluded": true, "unit": "0.1 mm"},
+        {"name": "Offset", "min": -1000, "max": 1000, "default": "SOX", "excluded": true, "unit": "0.1 mm"}
+      ],
+      "return_codes": [0, 1, 3, 29, 30], "status": "implement", "moves_x": true,
+      "note": "Range and Offset are TECAN-internal calibration parameters and are never sent. Failed init (rc 1) loses the position."
+    },
+    {
+      "code": "PIY", "name": "Position Initialization Y-Axis", "page": 55, "syntax": "PIY InitSpeed*, (Range, Offset)",
+      "params": [
+        {"name": "InitSpeed", "min": 5, "max": 1500, "default": 350, "optional": true, "unit": "0.1 mm/s"},
+        {"name": "Range", "min": -1000000, "max": 1000000, "default": "SRY", "excluded": true, "unit": "0.1 mm"},
+        {"name": "Offset", "min": -1000, "max": 1000, "default": "SOY", "excluded": true, "unit": "0.1 mm"}
+      ],
+      "return_codes": [0, 1, 3, 29, 30], "status": "implement",
+      "note": "Range and Offset are TECAN-internal calibration parameters and are never sent."
+    },
+    {
+      "code": "PIZ", "name": "Position Initialization Z-Axis", "page": 55, "syntax": "PIZ TipSelect*, InitSpeed*, (Range)",
+      "params": [
+        {"name": "TipSelect", "min": 1, "max": 255, "default": 255, "optional": true},
+        {"name": "InitSpeed", "min": 5, "max": 1500, "default": 270, "optional": true, "unit": "0.1 mm/s"},
+        {"name": "Range", "min": -1000000, "max": 1000000, "default": "SRZ", "excluded": true, "unit": "0.1 mm"}
+      ],
+      "return_codes": [0, 1, 3, 29, 30], "status": "implement",
+      "note": "Range is a TECAN-internal calibration parameter and is never sent. The table continues on page 56."
+    },
+    {
+      "code": "PAA", "name": "Position Absolute for All Axis", "page": 56, "syntax": "PAA X*, Y*, Ys*, Z1*..Z8*",
+      "params": [
+        {"name": "X", "min": "x_lower", "max": "x_upper", "default": "last", "optional": true, "unit": "0.1 mm"},
+        {"name": "Y", "min": "y_lower", "max": "y_upper", "default": "last", "optional": true, "unit": "0.1 mm"},
+        {"name": "Ys", "min": 90, "max": 380, "default": "last", "optional": true, "unit": "0.1 mm"},
+        {"name": "Z", "count": 8, "min": 0, "max": "z_upper", "default": "travel", "optional": true, "unit": "0.1 mm"}
+      ],
+      "return_codes": [0, 3, 5, 7, 10], "status": "implement", "moves_x": true,
+      "note": "Z travels at the SHZ heights (or init position if no SHZ). Speeds from SFX, SFY, SFZ and SSM. The number of Z parameters depends on the installed tips."
+    },
+    {
+      "code": "PXZ", "name": "Fast Positioning Absolute for X and Z Axis", "page": 56, "syntax": "PXZ X*, Wx, Wz, Z1*..Z8*",
+      "params": [
+        {"name": "X", "min": "x_lower", "max": "x_upper", "default": "last", "optional": true, "unit": "0.1 mm"},
+        {"name": "Wx", "min": 0, "max": 100, "default": 0, "unit": "0.1 mm", "description": "Positioning window for X"},
+        {"name": "Wz", "min": 0, "max": 100, "default": 0, "unit": "0.1 mm", "description": "Positioning window for Z"},
+        {"name": "Z", "count": 8, "min": 0, "max": "z_upper", "default": "travel", "optional": true, "unit": "0.1 mm"}
+      ],
+      "return_codes": [0, 3, 5, 7, 10], "status": "implement", "moves_x": true,
+      "note": "No Y movement. 1 + 2 + 8 = 11 parameters. Not in the EVOware logs; check the firmware accepts it on 2026-11-24 (V1.60)."
+    },
+    {
+      "code": "PAX", "name": "Position Absolute X-Axis", "page": 56, "syntax": "PAX X*",
+      "params": [{"name": "X", "min": "x_lower", "max": "x_upper", "default": "last", "optional": true, "unit": "0.1 mm"}],
+      "return_codes": [0, 3, 5, 7, 10], "status": "implement", "moves_x": true,
+      "note": "Speed and acceleration from SFX and SSM. Parameter table on page 57."
+    },
+    {
+      "code": "PAY", "name": "Position Absolute Y-Axis", "page": 57, "syntax": "PAY Y*, Ys*",
+      "params": [
+        {"name": "Y", "min": "y_lower", "max": "y_upper", "default": "last", "optional": true, "unit": "0.1 mm"},
+        {"name": "Ys", "allowed_range": [[0, 0], [90, 380]], "default": 90, "optional": true, "unit": "0.1 mm", "description": "0 = 90"}
+      ],
+      "return_codes": [0, 3, 5, 7, 10], "status": "implement",
+      "note": "With spacing 90 the pressure movement uses slow speeds (1536-plate algorithm, SYB)."
+    },
+    {
+      "code": "PSY", "name": "Y-Spacing Of Tips", "page": 57, "syntax": "PSY Ys",
+      "params": [{"name": "Ys", "allowed_range": [[0, 0], [90, 380]], "default": 90, "unit": "0.1 mm", "description": "Tip-to-tip distance, 0 = 90. Tip 1 stays in place."}],
+      "return_codes": [0, 3, 5, 7, 10], "status": "implement"
+    },
+    {
+      "code": "PAZ", "name": "Position Absolute Z-Axis", "page": 58, "syntax": "PAZ Z1*..Z8*",
+      "params": [{"name": "Z", "count": 8, "min": 0, "max": "z_upper", "default": "last", "optional": true, "unit": "0.1 mm"}],
+      "return_codes": [0, 3, 5, 7, 10, 22], "status": "implement",
+      "note": "Upward moves add the SYB Z overdrive."
+    },
+    {
+      "code": "PRX", "name": "Position Relative for X-Axis", "page": 58, "syntax": "PRX +/-X",
+      "params": [{"name": "X", "min": "x_lower-pos", "max": "x_upper-pos", "default": 0, "unit": "0.1 mm"}],
+      "return_codes": [0, 3, 5, 7, 10], "status": "implement", "moves_x": true
+    },
+    {
+      "code": "PRY", "name": "Position Relative Y-Axis", "page": 58, "syntax": "PRY +/-Y",
+      "params": [{"name": "Y", "min": "y_lower-pos", "max": "y_upper-pos", "default": 0, "unit": "0.1 mm"}],
+      "return_codes": [0, 3, 5, 7, 10], "status": "implement"
+    },
+    {
+      "code": "PRZ", "name": "Position Relative Z-Axis", "page": 58, "syntax": "PRZ +/-Z1*..+/-Z8*",
+      "params": [{"name": "Z", "count": 8, "min": "z_lower-pos", "max": "z_upper-pos", "default": 0, "optional": true, "unit": "0.1 mm"}],
+      "return_codes": [0, 3, 5, 7, 10], "status": "implement",
+      "note": "The parameter cell has no asterisk but the syntax line does; treated as optional."
+    },
+    {
+      "code": "PCX", "name": "Position Relative in Increment Resolution for X-Axis", "page": 59, "syntax": "PCX +/-Xincs",
+      "params": [{"name": "Xincs", "min": -10000, "max": 10000, "default": 0, "unit": "encoder increments"}],
+      "return_codes": [0, 3], "status": "implement", "moves_x": true,
+      "note": "CAUTION in spec: the firmware checks no ranges and does no collision avoidance. The backend must convert increments to 0.1 mm (RPX10 scale factor) and check range and X clearance itself."
+    },
+    {
+      "code": "PCY", "name": "Position Relative in Increment Resolution for Y-Axis", "page": 59, "syntax": "PCY +/-Yincs",
+      "params": [{"name": "Yincs", "min": -10000, "max": 10000, "default": 0, "unit": "encoder increments"}],
+      "return_codes": [0, 3], "status": "implement",
+      "note": "CAUTION in spec: the firmware checks no ranges. The backend must check the Y range itself."
+    },
+    {
+      "code": "PTG", "name": "Position Logic for Optional Tip Guard Drive", "page": 59, "syntax": "PTG LogPos",
+      "params": [{"name": "LogPos", "allowed": [0, 1], "excluded_values": [99, 100, 101], "default": 0, "description": "0 released, 1 closed under the tips. 99..101 are tip-guard calibration values and are never sent."}],
+      "return_codes": [0, 3, 5, 7, 10, 22], "status": "hardware_option", "option": "tip_guard",
+      "note": "Make sure the tips are in a safe position before closing."
+    },
+    {
+      "code": "MAX", "name": "Position Absolute with Slow Speed X-Axis", "page": 59, "syntax": "MAX X*, Speed*",
+      "params": [
+        {"name": "X", "min": "x_lower", "max": "x_upper", "default": "last", "optional": true, "unit": "0.1 mm"},
+        {"name": "Speed", "min": 1, "max": 4000, "default": "SSX", "optional": true, "unit": "0.1 mm/s"}
+      ],
+      "return_codes": [0, 3, 5, 7, 10], "status": "implement", "moves_x": true
+    },
+    {
+      "code": "MAY", "name": "Position Absolute with Slow Speed Y-Axis", "page": 59, "syntax": "MAY Y*, Ys*, Speed*",
+      "params": [
+        {"name": "Y", "min": "y_lower", "max": "y_upper", "default": "last", "optional": true, "unit": "0.1 mm", "description": "Position of tip 1"},
+        {"name": "Ys", "allowed_range": [[0, 0], [90, 380]], "default": 90, "optional": true, "unit": "0.1 mm", "description": "0 = 90"},
+        {"name": "Speed", "allowed_range": [[0, 0], [1, 4000]], "default": "SSY", "optional": true, "unit": "0.1 mm/s", "description": "0 = SSY"}
+      ],
+      "return_codes": [0, 3, 5, 7, 10], "status": "implement",
+      "note": "Parameter table on page 60."
+    },
+    {
+      "code": "MAZ", "name": "Position Absolute with Slow Speed Z-Axis", "page": 60, "syntax": "MAZ Z1*..Z8*, Speed*",
+      "params": [
+        {"name": "Z", "count": 8, "min": 0, "max": "z_upper", "default": "last", "optional": true, "unit": "0.1 mm"},
+        {"name": "Speed", "min": 1, "max": 4000, "default": "SSZ", "optional": true, "unit": "0.1 mm/s"}
+      ],
+      "return_codes": [0, 3, 5, 7, 10], "status": "implement",
+      "note": "Records the liquid level signal during the move (read with RVZ). In 8+1 the number of tips is always eight."
+    },
+    {
+      "code": "MAA", "name": "Position Absolute for all Axis with Slow Speed", "page": 60, "syntax": "MAA X*, Y*, Ys*, Z1..Z8",
+      "params": [
+        {"name": "X", "min": "x_lower", "max": "x_upper", "default": "last", "optional": true, "unit": "0.1 mm"},
+        {"name": "Y", "min": "y_lower", "max": "y_upper", "default": "last", "optional": true, "unit": "0.1 mm"},
+        {"name": "Ys", "min": 90, "max": 380, "default": "last", "optional": true, "unit": "0.1 mm"},
+        {"name": "Z", "count": 8, "min": 0, "max": "z_upper", "default": "travel", "unit": "0.1 mm"}
+      ],
+      "return_codes": [0, 3, 5, 7, 10], "status": "implement", "moves_x": true,
+      "note": "Like PAA with SSX, SSY, SSZ and SSM speeds. Z parameters have no asterisk."
+    },
+    {
+      "code": "MRX", "name": "Position Relative with Slow Speed X-Axis", "page": 61, "syntax": "MRX +/-X, Speed*",
+      "params": [
+        {"name": "X", "min": "x_lower-pos", "max": "x_upper-pos", "default": 0, "unit": "0.1 mm"},
+        {"name": "Speed", "min": 1, "max": 4000, "default": "SSX", "optional": true, "unit": "0.1 mm/s"}
+      ],
+      "return_codes": [0, 3, 5, 7, 10], "status": "implement", "moves_x": true
+    },
+    {
+      "code": "MRY", "name": "Position Relative with Slow Speed Y-Axis", "page": 61, "syntax": "MRY +/-Y*, Speed*",
+      "params": [
+        {"name": "Y", "min": "y_lower-pos", "max": "y_upper-pos", "default": 0, "optional": true, "unit": "0.1 mm"},
+        {"name": "Speed", "allowed_range": [[0, 0], [1, 4000]], "default": "SSY", "optional": true, "unit": "0.1 mm/s", "description": "0 = SSY"}
+      ],
+      "return_codes": [0, 3, 5, 7, 10], "status": "implement"
+    },
+    {
+      "code": "MRZ", "name": "Position Relative with Slow Speed Z-Axis", "page": 61, "syntax": "MRZ +/-Z1*..+/-Z8*, Speed*",
+      "params": [
+        {"name": "Z", "count": 8, "min": "z_lower-pos", "max": "z_upper-pos", "default": 0, "optional": true, "unit": "0.1 mm"},
+        {"name": "Speed", "min": 1, "max": 4000, "default": "SSZ", "optional": true, "unit": "0.1 mm/s"}
+      ],
+      "return_codes": [0, 3, 5, 7, 10], "status": "implement"
+    },
+    {
+      "code": "MDT", "name": "Move Tip, Detect Liquid, Submerge", "page": 62, "syntax": "MDT TipSelect, Submerge, Zstart, Zmax, Zadd1..Zadd8",
+      "params": [
+        {"name": "TipSelect", "min": 1, "max": 255, "default": 255},
+        {"name": "Submerge", "min": -1000, "max": "z_upper-pos", "default": 0, "unit": "0.1 mm"},
+        {"name": "Zstart", "min": 0, "max": "z_upper", "default": 2100, "unit": "0.1 mm"},
+        {"name": "Zmax", "min": 0, "max": "z_upper", "default": 1000, "unit": "0.1 mm"},
+        {"name": "Zadd", "count": 8, "min": 0, "max": "zstart-zmax", "default": 0, "unit": "0.1 mm", "description": "Distance that must still be available below the liquid before Z-max (enough liquid check, includes submerge)"}
+      ],
+      "return_codes": [0, 3, 9, 10, 11, 20, 21, 22, 23, 24, 28], "status": "implement",
+      "note": "No liquid: tips return to Z-travel and an error is returned. Undefined parameters fall back to SBL/STL/SML/SLA/SSL/SDL. Without mounted tips Z goes to Z-start and returns 24. 12 parameters = the firmware maximum. Reed crosstalk monitoring only at spacing < 11.5 mm."
+    },
+    {
+      "code": "MET", "name": "Move Tip, Detect Liquid, Submerge (stay at Z-max on error)", "page": 62, "syntax": "MET TipSelect, Submerge, Zstart, Zmax, Zadd1..Zadd8",
+      "params": [
+        {"name": "TipSelect", "min": 1, "max": 255, "default": 255},
+        {"name": "Submerge", "min": -1000, "max": "z_upper-pos", "default": 0, "unit": "0.1 mm"},
+        {"name": "Zstart", "min": 0, "max": "z_upper", "default": 2100, "unit": "0.1 mm"},
+        {"name": "Zmax", "min": 0, "max": "z_upper", "default": 1000, "unit": "0.1 mm"},
+        {"name": "Zadd", "count": 8, "min": 0, "max": "zstart-zmax", "default": 0, "unit": "0.1 mm"}
+      ],
+      "return_codes": [0, 3, 9, 10, 12, 20, 21, 22, 23, 24, 28], "status": "implement",
+      "note": "Same as MDT except the tips remain at Z-max on error."
+    },
+    {
+      "code": "MCT", "name": "Check for Clot on Selected Tips", "page": 63, "syntax": "MCT TipSelect, RetractDist, RetractSpeed, Limit",
+      "params": [
+        {"name": "TipSelect", "min": 1, "max": 255, "default": 255},
+        {"name": "RetractDist", "min": 0, "max": "z_upper", "default": 50, "unit": "0.1 mm", "description": "Must be > Limit"},
+        {"name": "RetractSpeed", "min": 1, "max": 1500, "default": 200, "unit": "0.1 mm/s"},
+        {"name": "Limit", "min": 0, "max": "RetractDist-1", "default": 40, "unit": "0.1 mm"}
+      ],
+      "return_codes": [0, 3, 10, 18, 19, 22, 23, 24], "status": "implement",
+      "note": "Undefined parameters fall back to SDR/SSR/SLR. Not in the EVOware logs."
+    },
+    {
+      "code": "APT", "name": "Pierce With Tip", "page": 63, "syntax": "APT TipSelect*, Zstart, Zmax",
+      "params": [
+        {"name": "TipSelect", "min": 1, "max": 255, "default": 255, "optional": true},
+        {"name": "Zstart", "min": 0, "max": "z_upper", "default": "last", "unit": "0.1 mm"},
+        {"name": "Zmax", "min": 0, "max": "z_upper", "default": "last", "unit": "0.1 mm"}
+      ],
+      "return_codes": [0, 3, 10, 22], "status": "hardware_option", "option": "piercing",
+      "note": "Both Z parameters are required, otherwise no move. CAUTION in spec: can destroy the Z axis with a high current limit (SPS)."
+    },
+    {
+      "code": "AGT", "name": "Get Disposable Tip", "page": 63, "syntax": "AGT TipSelect*, Zstart, SearchDist, GetMode, Retract",
+      "params": [
+        {"name": "TipSelect", "min": 1, "max": 255, "default": 255, "optional": true},
+        {"name": "Zstart", "min": 0, "max": "z_upper", "default": null, "unit": "0.1 mm"},
+        {"name": "SearchDist", "min": 0, "max": "zstart", "default": 0, "unit": "0.1 mm"},
+        {"name": "GetMode", "min": 0, "max": 2, "default": 0, "description": "0 sequential, 1 all parallel, 2 even/odd"},
+        {"name": "Retract", "min": 0, "max": 1, "default": 0, "description": "0 retract to Z-range, 1 stay at Z-start"}
+      ],
+      "return_codes": [0, 3, 10, 22, 25, 26, 27], "status": "implement",
+      "note": "Pick force and speed from SSP. EVOware sends 4 parameters, e.g. 'AGT255,700,210,0'."
+    },
+    {
+      "code": "ADT", "name": "Discard Disposable Tip", "page": 63, "index_page": 64, "syntax": "ADT TipSelect*",
+      "params": [{"name": "TipSelect", "min": 1, "max": 255, "default": 255, "optional": true}],
+      "return_codes": [0, 3, 5, 7, 22, 27, 28], "status": "implement",
+      "note": "Throws off by moving up to the Z init position. Optional aspiration during discard via SDT. Parameter table on page 64."
+    },
+    {
+      "code": "AST", "name": "Discard Disposable Tip with Lower DiTi Eject Option", "page": 64, "syntax": "AST TipSelect*, LogPos*",
+      "params": [
+        {"name": "TipSelect", "min": 1, "max": 255, "default": 255, "optional": true},
+        {"name": "LogPos", "min": 0, "max": 1, "default": 0, "optional": true, "description": "0 higher, 1 lower discard position"}
+      ],
+      "return_codes": [0, 1, 3, 5, 7, 10, 22, 27, 28], "status": "implement",
+      "note": "Works also without the lower DiTi eject hardware (spec). EVOware uses AST for DropDITI (515 times in the logs)."
+    },
+    {
+      "code": "AXT", "name": "Discard Disposable Tip with Lower DiTi Eject Option (only 8 + 1 Configuration)", "page": 65, "syntax": "AXT LogPos*",
+      "params": [{"name": "LogPos", "min": 0, "max": 1, "default": 0, "optional": true}],
+      "return_codes": [0, 1, 3, 5, 7, 10, 27], "status": "hardware_option", "option": "8plus1"
+    },
+    {
+      "code": "BMX", "name": "Stop X Drive Movement Immediately", "page": 65, "syntax": "BMX Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 2, "default": 0, "description": "0 normal deceleration, 1 emergency break, 2 power down axis (sets error 10)"}],
+      "return_codes": [0, 3], "status": "implement",
+      "note": "After BMX2 re-initialize X."
+    },
+    {
+      "code": "BMY", "name": "Stop Y Drive Movement Immediately", "page": 66, "syntax": "BMY Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 2, "default": 0, "description": "0 normal deceleration (to last space position), 1 emergency break, 2 power down axis"}],
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "BMZ", "name": "Stop Z Drive Movement Immediately", "page": 66, "syntax": "BMZ TipSelect*, Selector*",
+      "params": [
+        {"name": "TipSelect", "min": 1, "max": 255, "default": 255, "optional": true},
+        {"name": "Selector", "min": 0, "max": 2, "default": 0, "optional": true}
+      ],
+      "return_codes": [0, 3, 5], "status": "implement"
+    },
+    {
+      "code": "BMA", "name": "Stop all Axis Immediately", "page": 66, "syntax": "BMA Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 2, "default": 0}],
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "CST", "name": "Calibrate Automatically Lower DiTi Eject Logical Positions", "page": 66, "syntax": "CST", "params": [],
+      "return_codes": [0, 1, 5, 22, 29], "status": "excluded", "exclude_reason": "Calibration."
+    },
+    {
+      "code": "ARX", "name": "Auto Range X-Axis", "page": 66, "syntax": "ARX Scale*, Offset*",
+      "params": [{"name": "Scale", "min": 0, "max": 1, "default": 0, "optional": true}, {"name": "Offset", "min": 0, "max": "SOX", "default": "SOX", "optional": true}],
+      "return_codes": [0, 1, 3, 5], "status": "excluded", "exclude_reason": "Range calibration (drives to both X stoppers)."
+    },
+    {
+      "code": "ARY", "name": "Auto Range Y-Axis", "page": 67, "syntax": "ARY Scale*, Offset*",
+      "params": [{"name": "Scale", "min": 0, "max": 1, "default": 0, "optional": true}, {"name": "Offset", "min": 0, "max": "SOY", "default": "SOY", "optional": true}],
+      "return_codes": [0, 1, 3, 5], "status": "excluded", "exclude_reason": "Range calibration."
+    },
+    {
+      "code": "ARZ", "name": "Auto Range Z-Axis", "page": 67, "syntax": "ARZ TipSelect",
+      "params": [{"name": "TipSelect", "allowed": [1, 2, 4, 8, 16, 32, 64, 128], "default": 0}],
+      "return_codes": [0, 1, 3, 5], "status": "excluded", "exclude_reason": "Range calibration with a TECAN reference tip."
+    },
+    {
+      "code": "NOC", "name": "Automatic Reference Pin Coarse Detection", "page": 68, "syntax": "NOC TipSelect",
+      "params": [{"name": "TipSelect", "allowed": [1, 2, 4, 8, 16, 32, 64, 128]}],
+      "return_codes": [0, 1, 3, 7], "status": "excluded", "exclude_reason": "Reference pin calibration. Spec: wrong use can damage the instrument."
+    },
+    {
+      "code": "NOK", "name": "Automatic Reference Hole Detection", "page": 68, "syntax": "NOK TipSelect",
+      "params": [{"name": "TipSelect", "allowed": [1, 2, 4, 8, 16, 32, 64, 128]}],
+      "return_codes": [0, 1, 3, 7], "status": "excluded", "exclude_reason": "Reference hole calibration."
+    },
+    {
+      "code": "MSD", "name": "X/Y/Z-Spiral Move with Dilutor Tracking", "page": 68,
+      "syntax": "MSD XDeltaDistance, YDeltaDistance, NrOfHalfSpirals, TipSelect, DilutorDistance, ZTrackingDistance, XYSpeed, XYAcceleration",
+      "params": [
+        {"name": "XDeltaDistance", "unit": "0.1 mm", "description": "Not 0; same sign as YDeltaDistance; > 0 opening, < 0 closing spiral"},
+        {"name": "YDeltaDistance", "unit": "0.1 mm", "description": "Not 0; same sign as XDeltaDistance"},
+        {"name": "NrOfHalfSpirals", "description": "All moves within the axis ranges"},
+        {"name": "TipSelect", "min": 0, "max": 255, "description": "Dilutor and Z select; 0 = no dilutor or Z move"},
+        {"name": "DilutorDistance", "min": -3150, "max": 3150, "unit": "full steps", "description": "0 = no dilutor move"},
+        {"name": "ZTrackingDistance", "min": 0, "unit": "0.01 mm", "description": "Z move down after each half spiral except the last; 0 = none"},
+        {"name": "XYSpeed", "min": 1, "max": 4000, "unit": "0.1 mm/s"},
+        {"name": "XYAcceleration", "min": 430, "max": 11250, "unit": "0.1 mm/s2"}
+      ],
+      "return_codes": [0, 3, 5, 10, 28], "status": "implement", "moves_x": true, "min_fw": "V1.60005-02/2011",
+      "untested": true,
+      "note": "NOT TESTED: implemented on operator request (2026-11-21) but never run on hardware. Added in firmware after the installed LIHACU-V1.60-02/2010, so it probably answers 'invalid command' (2) here. Ys should be opened at least 0.6 mm. Pages 68-70."
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "section": "4.13",
+  "title": "Action Commands (TePS Specific Functionality)",
+  "commands": [
+    {
+      "code": "ATP", "name": "Auto Tip Step Positioning", "page": 74, "syntax": "ATP AxisSelect, CountOfSteps*, StepWidth*, SensorLimit*, SensorChannel*",
+      "params": [
+        {"name": "AxisSelect", "min": 0, "max": 9, "default": 0},
+        {"name": "CountOfSteps", "min": 1, "max": 200, "default": 100, "optional": true},
+        {"name": "StepWidth", "min": -10, "max": 10, "default": 1, "optional": true, "unit": "0.1 mm"},
+        {"name": "SensorLimit", "min": -99, "max": 99, "default": 50, "optional": true, "unit": "%"},
+        {"name": "SensorChannel", "min": 1, "max": 2, "default": 1, "optional": true}
+      ],
+      "return_codes": [0, 3, 5, 7, 17, 28], "status": "excluded",
+      "exclude_reason": "TePS tip-position calibration."
+    },
+    {
+      "code": "AAZ", "name": "Auto Adjustment Z-Axis direction", "page": 74, "syntax": "AAZ TipSelect, RelDistance, Speed*",
+      "params": [
+        {"name": "TipSelect", "allowed": [1, 2, 4, 8, 16, 32, 64, 128]},
+        {"name": "RelDistance", "default": 100, "unit": "0.1 mm"},
+        {"name": "Speed", "min": 1, "max": 1000, "default": 350, "optional": true, "unit": "0.1 mm/s"}
+      ],
+      "return_codes": [0, 3, 5, 7, 17, 28], "status": "excluded",
+      "exclude_reason": "TePS calibration."
+    },
+    {
+      "code": "AAT", "name": "Auto Adjustment X- and Y-Axis direction", "page": 75, "syntax": "AAT AxisSelect, CountOfTips, RelDistance, Speed*",
+      "params": [
+        {"name": "AxisSelect", "min": 0, "max": 1},
+        {"name": "CountOfTips", "min": 1, "max": 8},
+        {"name": "RelDistance", "default": 0, "unit": "0.1 mm"},
+        {"name": "Speed", "min": 1, "max": 1000, "default": 100, "optional": true, "unit": "0.1 mm/s"}
+      ],
+      "return_codes": [0, 3, 5, 7, 17, 28], "status": "excluded",
+      "exclude_reason": "TePS calibration."
+    }
+  ]
+}

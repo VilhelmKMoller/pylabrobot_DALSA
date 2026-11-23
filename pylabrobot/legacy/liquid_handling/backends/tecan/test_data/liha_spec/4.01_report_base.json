@@ -1,0 +1,85 @@
+{
+  "section": "4.1",
+  "title": "Report Commands (Base Functionality)",
+  "commands": [
+    {
+      "code": "RFV", "name": "Report Firmware Version", "page": 20, "syntax": "RFV Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 15, "default": 0, "description": "Report selected system information."}],
+      "response": {
+        "0": "Application firmware version, 'LIHACU-Vx.xx-MM/YYYY'",
+        "1": "Bootstrap version",
+        "2": "Instrument serial number",
+        "3": "Hardware version of the DeviceCU board",
+        "4": "CAN bus node selection port",
+        "5": "TECAN copyright",
+        "7": "Number of node addresses of this device",
+        "8": "Application switch (chapter 3.7.3)",
+        "9": "DCU library version",
+        "10": "Expected HEX file name for firmware download, 'DCULI'",
+        "15": "Application firmware as integer, V2.00 = 200",
+        "16": "Expected DC-Servo2 firmware version"
+      },
+      "return_codes": [0, 3], "status": "implement",
+      "note": "Validity says 0..15, yet selector 16 is listed in the response table."
+    },
+    {
+      "code": "RDF", "name": "Report Diagnostic Functions", "page": 20, "syntax": "RDF Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 3, "default": 0, "description": "Reports selected diagnose function."}],
+      "response": {
+        "0": "Number of power ups",
+        "1": "Overall operating time in minutes",
+        "2": "Number of firmware downloads in Flash-EPROM",
+        "3": "Number of parameter page erasings in Flash-EPROM",
+        "4": "Number of parameter page recovery cycles"
+      },
+      "return_codes": [0, 3], "status": "implement",
+      "note": "Validity says 0..3, yet selector 4 is listed in the response table."
+    },
+    {
+      "code": "RGD", "name": "Report Global Data", "page": 21, "syntax": "RGD Selector",
+      "params": [{"name": "Selector", "min": 1, "max": 100, "default": null, "description": "Report the selected global data value."}],
+      "response": "-32768..32767",
+      "return_codes": [0, 3], "status": "implement",
+      "note": "Read-only. Its writer SGD is excluded."
+    },
+    {
+      "code": "RED", "name": "Read FLASH EPROM Data", "page": 21, "syntax": "RED Selector",
+      "params": [{"name": "Selector", "min": 0, "max": "RED0", "default": 0, "description": "0 = overall Flash-EPROM size in integers; 1..RED0 = value."}],
+      "response": "-32768..32767",
+      "return_codes": [0, 3], "status": "implement",
+      "note": "Reads the RAM mirror of the flash. A fresh copy would need ARE, which is excluded, so RED reports the mirror as loaded at power-on. Service purposes only."
+    },
+    {
+      "code": "RDA", "name": "Report Device Allocation Array of Subdevices", "page": 21, "syntax": "RDA Layer, Type",
+      "params": [
+        {"name": "Layer", "min": 0, "max": 7, "default": 0, "description": "Report system devices of selected layer."},
+        {"name": "Type", "min": 0, "max": 1, "default": 0, "description": "0 = binary format, 1 = decimal format."}
+      ],
+      "response": {"type 0": "0..65535", "type 1": "0..15"},
+      "return_codes": [0, 3], "status": "implement",
+      "note": "Used on 2026-11-24 to probe the installed hardware options."
+    },
+    {
+      "code": "RKA", "name": "Report Keep Alive Function", "page": 22, "syntax": "RKA",
+      "params": [],
+      "response": {"0": "Keep alive off", "1": "Keep alive on"},
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RSU", "name": "Report Stack Usage", "page": 22, "syntax": "RSU TaskID, Selector",
+      "params": [
+        {"name": "TaskID", "min": 1, "max": 12, "default": null, "description": "1 MCANTx, 2 MCANRx, 3 MCANRep, 4 SCANTx, 5 SCANRx, 6 MBOOT, 7 SBOOTx, 8 SuperV, 9 Interrupt, 10 XPatch, 11 Device0, 12 Device1."},
+        {"name": "Selector", "min": 0, "max": 1, "default": null, "description": "0 = task name (max 8 characters), 1 = stack depth."}
+      ],
+      "response": "Task name or stack depth",
+      "return_codes": [0, 3], "status": "implement",
+      "note": "Service purposes only, but read-only."
+    },
+    {
+      "code": "RBT", "name": "Report Board Temperature", "page": 22, "syntax": "RBT",
+      "params": [],
+      "response": "Temperature of the DCU2 board in 1/10 degree Celsius (257 = 25.7 C)",
+      "return_codes": [0, 3], "status": "implement"
+    }
+  ]
+}

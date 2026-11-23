@@ -1,0 +1,31 @@
+{
+  "section": "4.3",
+  "title": "Report Commands (Dilutor Specific Functionality)",
+  "commands": [
+    {
+      "code": "RPP", "name": "Report Plunger Drive Parameter", "page": 32, "syntax": "RPP Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 12, "default": 0, "description": "Reports selected drive parameter (see the dilutor command set XP2000 / XP6000 / ZaapMotion)."}],
+      "response": "One value per installed dilutor, meaning per the dilutor command set",
+      "return_codes": [0, 3, 28], "status": "implement",
+      "note": "Without a configured ZaapMotion dilutor RPP returns 28. EVOware uses RPP0 (plunger position) after every plunger move."
+    },
+    {
+      "code": "RDS", "name": "Report Last Error Code of Dilutor", "page": 32, "syntax": "RDS", "params": [],
+      "response": "Error codes of the last command to all dilutors, e.g. '5,7,7,7,7,7,0,0' = dilutor 1 not connected, 2-6 not initialized, 7-8 initialized",
+      "return_codes": [0, 3], "status": "implement",
+      "note": "Read this after return code 28 (subdevice error)."
+    },
+    {
+      "code": "RDD", "name": "Report Dilutor Drive Status", "page": 33, "syntax": "RDD Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 1, "default": 0, "description": "0 = plunger drive status, 1 = valve drive status."}],
+      "response": "Eight status characters (dilutor REE). Drives that are not installed show error 5 = 'E'.",
+      "return_codes": [0, 3], "status": "implement",
+      "note": "The table of contents OCR reads it as 'ROD'."
+    },
+    {
+      "code": "RYV", "name": "Report Syringe Volume", "page": 33, "syntax": "RYV", "params": [],
+      "response": "Syringe volume of Dilutor1..Dilutor8",
+      "return_codes": [0, 3], "status": "implement"
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import math
 from abc import ABCMeta, abstractmethod
 from typing import (
   Dict,
@@ -9,6 +10,7 @@ from typing import (
   Tuple,
   TypeVar,
   Union,
+  cast,
 )
 
 from pylabrobot.io.usb import USB
@@ -16,13 +18,19 @@ from pylabrobot.legacy.liquid_handling.backends.backend import (
   LiquidHandlerBackend,
 )
 from pylabrobot.legacy.liquid_handling.backends.tecan.errors import (
+  TecanLihaError,
+  TecanTipsNotFetchedError,
   TecanError,
   error_code_to_exception,
 )
-from pylabrobot.legacy.liquid_handling.liquid_classes.tecan import (
-  TecanLiquidClass,
-  get_liquid_class,
+from pylabrobot.legacy.liquid_handling.backends.tecan import liha, mca
+from pylabrobot.legacy.liquid_handling.backends.tecan.liha_firmware import LihaFirmware
+from pylabrobot.legacy.liquid_handling.backends.tecan.liha_firmware_commands import (
+  COMMANDS as LIHA_COMMANDS,
 )
+from pylabrobot.legacy.liquid_handling.errors import ChannelizedError
+from pylabrobot.resources.errors import HasTipError, NoTipError
+from pylabrobot.resources.itemized_resource import ItemizedResource
 from pylabrobot.legacy.liquid_handling.standard import (
   Drop,
   DropTipRack,
@@ -40,18 +48,19 @@ from pylabrobot.legacy.liquid_handling.standard import (
 )
 from pylabrobot.resources import (
   Coordinate,
-  Liquid,
   Resource,
-  TecanPlate,
   TecanPlateCarrier,
   TecanTip,
-  TecanTipRack,
   Tip,
+  TipRack,
   TipSpot,
   Trash,
 )
 
 T = TypeVar("T")
+
+LIHA_DEFAULT_CLASS = "Water free dispense"
+UNKNOWN = "unknown"  # LiHa channel contents after an interrupted liquid step
 
 
 class TecanLiquidHandler(LiquidHandlerBackend, metaclass=ABCMeta):
@@ -110,15 +119,18 @@ class TecanLiquidHandler(LiquidHandlerBackend, metaclass=ABCMeta):
       A dictionary containing the parsed values.
     """
 
-    s = resp.decode("utf-8", "ignore")
-    module = s[1:3]
+    # Preserve the existing prefix/module/status/body/suffix layout. The local
+    # device command manuals do not specify USB delimiter or status-bit rules.
+    if len(resp) < 5:
+      raise ValueError("Tecan response is truncated: expected at least 5 bytes")
+
+    module = resp[1:3].decode("utf-8")
     ret = int(resp[3]) ^ (1 << 7)
     if ret != 0:
       raise error_code_to_exception(module, ret)
 
-    # below line changed to revie int and str.
     data: List[Union[int, str]] = []
-    for x in s[3:-1].split(","):
+    for x in resp[4:-1].decode("utf-8").split(","):
       if len(x) == 0:  # Skip empty values
         continue
       # RoMa(C1) and LiHa(C5) should only have integer values
@@ -164,6 +176,8 @@ class TecanLiquidHandler(LiquidHandlerBackend, metaclass=ABCMeta):
       return None
 
     resp = await self.io.read(timeout=read_timeout)
+    if len(resp) >= 5 and resp[1:3] != module.encode("utf-8"):
+      raise ValueError(f"Expected response module {module}, got {resp[1:3]!r}")
     return self.parse_response(resp)
 
   async def setup(self):
@@ -188,7 +202,7 @@ class EVOBackend(TecanLiquidHandler):
     self,
     diti_count: int = 0,
     packet_read_timeout: int = 12,
-    read_timeout: int = 60,
+    read_timeout: int = 120,
     write_timeout: int = 60,
   ):
     """Create a new EVO interface.
@@ -213,11 +227,37 @@ class EVOBackend(TecanLiquidHandler):
     self._roma_connected: Optional[bool] = None
     self._pnp_connected: Optional[bool] = None
     self._mca_connected: Optional[bool] = None
+    self._mca_operation_config = None
+    self._mca_operation_lock = asyncio.Lock()
+    # LiHa hardware options for the firmware layer (``liha_firmware.HARDWARE_OPTIONS``); unknown
+    # until probed on the instrument, so none.
+    self.liha_options: Tuple[str, ...] = ()
+    # LiHa X move parameters (SFX EndSpeed, Accel) for every LiHa plan when set: replaces the
+    # planners' SFX values and is sent before each plan, so all LiHa X moves use it. None = as
+    # EVOware (the planners' values).
+    self.liha_x_move: Optional[Tuple[int, int]] = None
+    # Operator-measured LiHa (dX, dY) corrections in 1/10 mm per worktable site (liha.LihaGeometry).
+    self.liha_site_offsets: Dict["liha.LihaSite", Tuple[int, int]] = {}
+    # Operator-measured LiHa Z corrections in 1/10 mm per site (negative = lower).
+    self.liha_site_z_offsets: Dict["liha.LihaSite", int] = {}
 
     self._z_traversal_height = 210  # mm, the default value for SHZ command
     self._z_roma_traversal_height = (
       68.7  # mm, is what was used to develop this but possibly too low
     )
+
+  async def move_x_only(self, planner, name, target):
+    """Experimental X-only planning; nonempty moves are blocked, not dispatched.
+
+    Reads the configured arms using the already-open transport. This does not
+    open USB, validate homing or geometry, or protect any existing movement path.
+    The lock and fault latch apply only to this backend instance and this entry point.
+    """
+    from .x_backend_planner import BackendXPlanner
+
+    if not hasattr(self, "_x_backend_planner"):
+      self._x_backend_planner = BackendXPlanner(self, planner)
+    return await self._x_backend_planner.request(planner, name, target)
 
   def x_coordinator(self, **kwargs):
     """The backend's X collision-avoidance coordinator (created on first use).
@@ -300,14 +340,24 @@ class EVOBackend(TecanLiquidHandler):
   def serialize(self) -> dict:
     return {**super().serialize(), **self.io.serialize()}
 
-  async def setup(self):
-    """Setup
+  async def setup(self, skip_initialization: bool = False):
+    """Connect and initialize all arms (homing, parking, LiHa flush, MCA plunger).
 
-    Creates a USB connection and finds read/write interfaces.
+    Args:
+      skip_initialization: only connect and read the arm configuration, without
+        any motion. For an instrument that is already initialized since power-on.
     """
 
     await super().setup()
 
+    if skip_initialization:
+      await self._connect_without_initialization()
+      return
+    await self.initialize()
+
+  async def initialize(self):
+    """Full EVO initialization on an open connection: all arms homed and parked,
+    MCA plunger initialized, LiHa plungers initialized and flushed."""
     self._liha_connected = await self.setup_arm(EVOBackend.LIHA)
     self._mca_connected = await self.setup_arm(EVOBackend.MCA)
     self._roma_connected = await self.setup_arm(EVOBackend.ROMA)
@@ -317,14 +367,20 @@ class EVOBackend(TecanLiquidHandler):
       await self.roma.position_initialization_x()
       # move to home position (TBD) after initialization
       await self._park_roma()
+
+    self._head96_installed = self.mca_connected
     if self.mca_connected:
-      self.mca = Mca(self, EVO.MCA)
-      # await self.mca.position_initialization_x() # function does not work for mca.
+      self.mca = Mca(self, EVOBackend.MCA)
+      # move to home position (TBD) after initialization
       await self._park_mca()
+      # PIA does not initialize the plunger (MCA manual p.34); EVOware runs PID here.
+      await self.mca_initialize_head_drive()
 
     if self.liha_connected:
       self.liha = LiHa(self, EVOBackend.LIHA)
       await self.liha.position_initialization_x()
+
+
 
     self._num_channels = await self.liha.report_number_tips()
     self._x_range = await self.liha.report_x_param(5)
@@ -341,6 +397,34 @@ class EVOBackend(TecanLiquidHandler):
     await self.liha.set_end_speed_plunger([1800] * self.num_channels)
     await self.liha.move_plunger_relative([-100] * self.num_channels)
     await self.liha.position_absolute_all_axis(45, 1031, 90, [self._z_range] * self.num_channels)
+
+  async def _arm_present(self, module) -> bool:
+    try:
+      await self.send_command(module, command="RFV", params=[0])
+    except TecanError as e:
+      if e.error_code == 5:  # device not implemented
+        return False
+      raise
+    return True
+
+  async def _connect_without_initialization(self):
+    """Detect arms and read ranges; sends report commands only."""
+    self._liha_connected = await self._arm_present(EVOBackend.LIHA)
+    self._mca_connected = await self._arm_present(EVOBackend.MCA)
+    self._roma_connected = await self._arm_present(EVOBackend.ROMA)
+    self._head96_installed = self.mca_connected
+    if self.roma_connected:
+      self.roma = RoMa(self, EVOBackend.ROMA)
+    if self.mca_connected:
+      self.mca = Mca(self, EVOBackend.MCA)
+    if self.liha_connected:
+      self.liha = LiHa(self, EVOBackend.LIHA)
+      self._num_channels = await self.liha.report_number_tips()
+      self._x_range = await self.liha.report_x_param(5)
+      self._y_range = (await self.liha.report_y_param(5))[0]
+      self._z_range = (await self.liha.report_z_param(5))[0]
+    else:
+      self._num_channels = 0
 
   async def setup_arm(self, module):
     try:
@@ -367,248 +451,659 @@ class EVOBackend(TecanLiquidHandler):
     await self.roma.action_move_vector_coordinate_position()
 
   async def _park_mca(self):
-    """Moves the MCA arm to a safe park position to prevent collision."""
-    # TODO CHANGE TO USE CORRECT FUNCTIONS
-
-    # Ensure MCA is initialized before moving
+    """Run the existing MCA parking command sequence."""
     await self.send_command(EVO.MCA, command="PIA")
-    await asyncio.sleep(0.5)
-
-    # Raise MCA Z-axis first to avoid collision
-    await self.send_command(EVO.MCA, command="PAA", params=[None, None, 2000])  # Raise Z-axis
-    await asyncio.sleep(1)
-
-    # Move MCA to parking position (adjust X, Y as needed)
     await self.send_command(EVO.MCA, command="PAA", params=[6000, 1000, None])
-    await asyncio.sleep(1)
-
-    # Stop movement to prevent drifting
     await self.send_command(EVO.MCA, command="BMA", params=[0, 0, 0])
-    await asyncio.sleep(0.5)
 
-  # ============== LiquidHandlerBackend methods ==============
 
-  async def aspirate(
-    self, ops: List[SingleChannelAspiration], use_channels: List[int]
-  ):  # TODO: pass in operation parameters to override TecanLiquidClass defaults
-    """Aspirate liquid from the specified channels.
+  # ============== LiquidHandlerBackend methods: LiHa ==============
+  #
+  # EVOware's LiHa steps, planned by ``liha.py`` (replayed against complete EVOware runs in
+  # liha_planner_tests.py) from the EVOware configuration and liquid classes. Every plan is
+  # validated command by command by the firmware layer (``LihaFirmware``) before the first command
+  # is sent, and every X move is preceded by ``x_coordinator().clear_path("liha", x)``.
+  #
+  # Supported, as on the REFINES deck: DiTis fetched from a DiTi rack and dropped into the DiTi
+  # waste chute; aspirate with liquid detection and dispense (free or wet contact) of the same
+  # volume on all channels, with consecutive channels over consecutive rows of one column.
+  # Not supported yet (raises): returning DiTis to a rack, mixing, multi-dispense, partial
+  # dispense, flow rates / liquid heights / blow-out other than the liquid class's.
+  #
+  # On an instrument error the arm is left where it stopped (EVOware's error recovery is not
+  # reproduced) and the contents of the channels involved become unknown: they can only drop
+  # their DiTis.
 
-    Args:
-      ops: The aspiration operations to perform.
-      use_channels: The channels to use for the operations.
-    """
+  def _liha_firmware(self) -> LihaFirmware:
+    fw = getattr(self, "_liha_fw", None)
+    if fw is None or fw.num_tips != self.num_channels:
 
-    # Get positions including offsets
-    x_positions, y_positions, z_positions = self._liha_positions(ops, use_channels)
+      async def sender(module: str, command: str, params: List[Optional[int]]):
+        return await self._liha_send(command, params or None)
 
-    tecan_liquid_classes = [
-      get_liquid_class(
-        target_volume=op.volume,
-        liquid_class=Liquid.WATER,
-        tip_type=op.tip.tip_type,
+      fw = LihaFirmware(sender, EVOBackend.LIHA, self.liha_options, self.num_channels)
+      self._liha_fw = fw
+    return fw
+
+  async def _liha_run(self, plan: "liha.Plan") -> list:
+    """Validate the whole plan, then send it; returns the replies (None for host waits)."""
+    fw = self._liha_firmware()
+    if self.liha_x_move is not None:
+      x_move: List[Optional[int]] = list(self.liha_x_move)
+      plan = liha.Plan(
+        [("SFX", x_move)]
+        + [(c, x_move if c == "SFX" else p) for c, p in plan.commands]
       )
-      if isinstance(op.tip, TecanTip)
-      else None
-      for op in ops
-    ]
-
-    ys = int(ops[0].resource.get_absolute_size_y() * 10)
-    zadd: List[Optional[int]] = [0] * self.num_channels
-    for i, channel in enumerate(use_channels):
-      par = ops[i].resource.parent
-      if par is None:
+    for command, params in plan.commands:
+      if command == "WAIT":
         continue
-      if not isinstance(par, TecanPlate):
-        raise ValueError(f"Operation is not supported by resource {par}.")
-      # TODO: calculate defaults when area is not specified
-      zadd[channel] = round(ops[i].volume / par.area * 10)
+      fw.check_wire(command, params)
+      if LIHA_COMMANDS[command]["moves_x"] and (command != "PAA" or params[0] is None):
+        raise RuntimeError(f"LiHa {command} moves X outside an absolute PAA; refused")
+    replies: list = []
+    for command, params in plan.commands:
+      if command == "WAIT":
+        await asyncio.sleep((params[0] or 0) / 1000)
+        replies.append(None)
+        continue
+      if command == "PAA":
+        assert params[0] is not None  # checked above
+        await self.x_coordinator().clear_path("liha", params[0])
+      replies.append(await fw.execute_wire(command, params))
+    return replies
 
-    # moves such that first channel is over first location
-    x, _ = self._first_valid(x_positions)
-    y, yi = self._first_valid(y_positions)
-    assert x is not None and y is not None
-    await self.liha.set_z_travel_height([self._z_range] * self.num_channels)
-    await self.liha.position_absolute_all_axis(
-      x,
-      y - yi * ys,
-      ys,
-      [z if z else self._z_range for z in z_positions["travel"]],
-    )
-    # TODO check channel positions match resource positions
+  async def _liha_report(self, command: str, selector: int) -> List[int]:
+    """One value per channel from RPZ/RPP (e.g. RPZ0 = current Z, RPP0 = plunger steps)."""
+    data = (await self._liha_firmware().execute_wire(command, [selector]))["data"]
+    if len(data) != self.num_channels or any(type(v) is not int for v in data):
+      raise TecanError(f"unexpected LiHa {command}{selector} response {data!r}", EVOBackend.LIHA, 0)
+    return list(data)
 
-    # aspirate airgap
-    pvl, sep, ppr = self._aspirate_airgap(use_channels, tecan_liquid_classes, "lag")
-    if any(ppr):
-      await self.liha.position_valve_logical(pvl)
-      await self.liha.set_end_speed_plunger(sep)
-      await self.liha.move_plunger_relative(ppr)
+  def _liha_contents(self) -> Dict[int, object]:
+    """Per channel: None (only air), ``(volume, liquid class name)``, or ``UNKNOWN``."""
+    contents: Optional[Dict[int, object]] = getattr(self, "_liha_contents_state", None)
+    if contents is None:
+      contents = {}
+      self._liha_contents_state = contents
+    return contents
 
-    # perform liquid level detection
-    # TODO: verify for other liquid detection modes
-    if any(tlc.aspirate_lld if tlc is not None else None for tlc in tecan_liquid_classes):
-      tlc, _ = self._first_valid(tecan_liquid_classes)
-      assert tlc is not None
-      detproc = tlc.lld_mode  # must be same for all channels?
-      sense = tlc.lld_conductivity
-      await self.liha.set_detection_mode(detproc, sense)
-      ssl, sdl, sbl = self._liquid_detection(use_channels, tecan_liquid_classes)
-      await self.liha.set_search_speed(ssl)
-      await self.liha.set_search_retract_distance(sdl)
-      await self.liha.set_search_z_start(z_positions["start"])
-      await self.liha.set_search_z_max(list(z if z else self._z_range for z in z_positions["max"]))
-      await self.liha.set_search_submerge(sbl)
-      shz = [min(z for z in z_positions["travel"] if z)] * self.num_channels  # TODO: max?
-      await self.liha.set_z_travel_height(shz)
-      await self.liha.move_detect_liquid(self._bin_use_channels(use_channels), zadd)
-      await self.liha.set_z_travel_height([self._z_range] * self.num_channels)
+  def _liha_lc(self, name: Optional[str], volume: float):
+    library = getattr(self, "liquid_classes", None)
+    if library is None:
+      raise RuntimeError("LiHa liquid classes need the EVOware configuration: call load_evoware_config()")
+    return library.liha(name or LIHA_DEFAULT_CLASS, volume)
 
-    # aspirate + retract
-    # SSZ: z_add / (vol / asp_speed)
-    zadd = [min(z, 32) if z else None for z in zadd]
-    ssz, sep, stz, mtr, ssz_r = self._aspirate_action(ops, use_channels, tecan_liquid_classes, zadd)
-    await self.liha.set_slow_speed_z(ssz)
-    await self.liha.set_end_speed_plunger(sep)
-    await self.liha.set_tracking_distance_z(stz)
-    await self.liha.move_tracking_relative(mtr)
-    await self.liha.set_slow_speed_z(ssz_r)
-    await self.liha.move_absolute_z(z_positions["start"])  # TODO: use retract_position and offset
-
-    # aspirate airgap
-    pvl, sep, ppr = self._aspirate_airgap(use_channels, tecan_liquid_classes, "tag")
-    await self.liha.position_valve_logical(pvl)
-    await self.liha.set_end_speed_plunger(sep)
-    await self.liha.move_plunger_relative(ppr)
-
-  async def dispense(self, ops: List[SingleChannelDispense], use_channels: List[int]):
-    """Dispense liquid from the specified channels.
-
-    Args:
-      ops: The dispense operations to perform.
-      use_channels: The channels to use for the dispense operations.
-    """
-
-    x_positions, y_positions, z_positions = self._liha_positions(ops, use_channels)
-    ys = int(ops[0].resource.get_absolute_size_y() * 10)
-
-    tecan_liquid_classes = [
-      get_liquid_class(
-        target_volume=op.volume,
-        liquid_class=Liquid.WATER,
-        tip_type=op.tip.tip_type,
+  def _liha_channels(self, use_channels: List[int]) -> List[int]:
+    if not self.liha_connected:
+      raise RuntimeError("no LiHa on this instrument")
+    if sorted(set(use_channels)) != list(use_channels):
+      raise ValueError(f"use_channels must be increasing without repeats, got {use_channels}")
+    first_diti = self.num_channels - self.diti_count
+    if not use_channels or use_channels[0] < first_diti or use_channels[-1] >= self.num_channels:
+      raise ValueError(
+        f"DiTis are configured on channels {first_diti}..{self.num_channels - 1} (diti_count"
+        f" {self.diti_count}), got {use_channels}"
       )
-      if isinstance(op.tip, TecanTip)
-      else None
-      for op in ops
-    ]
+    return [c + 1 for c in use_channels]
 
-    x, _ = self._first_valid(x_positions)
-    y, yi = self._first_valid(y_positions)
-    assert x is not None and y is not None
-    await self.liha.set_z_travel_height([z if z else self._z_range for z in z_positions["travel"]])
-    await self.liha.position_absolute_all_axis(
-      x,
-      y - yi * ys,
-      ys,
-      [z if z else self._z_range for z in z_positions["dispense"]],
+  def _liha_site(self, resource: Resource) -> "liha.LihaSite":
+    """The EVOware worktable position of ``resource`` (or of the labware it belongs to).
+
+    A labware that carries its own LiHa correction (``liha_offset`` = (dX, dY, dZ) in 1/10 mm, e.g.
+    ``DiTi_1000ul_LiHa_box``) has it registered for this site, so every LiHa position on it uses it.
+    """
+    geometry = self.mca_geometry  # PLR resource -> EVOware placement (not MCA-specific)
+    lw = geometry.labware_resource(resource)
+    placement = geometry.placement(lw)
+    holder = lw.parent
+    assert holder is not None and holder.parent is not None
+    site = liha.LihaSite(
+      placement.grid, placement.site_number - 1, mca.evoware_name(holder.parent), mca.evoware_name(lw)
     )
+    correction = getattr(lw, "liha_offset", None)
+    if correction is not None:
+      dx, dy, dz = correction
+      self.liha_site_offsets[site] = (dx, dy)
+      self.liha_site_z_offsets[site] = dz
+    return site
 
-    sep, spp, stz, mtr = self._dispense_action(ops, use_channels, tecan_liquid_classes)
-    await self.liha.set_end_speed_plunger(sep)
-    await self.liha.set_stop_speed_plunger(spp)
-    await self.liha.set_tracking_distance_z(stz)
-    await self.liha.move_tracking_relative(mtr)
+  def _liha_target(
+    self, ops: Sequence, use_channels: List[int], trough_column: int = 1
+  ) -> Tuple["liha.LihaSite", int, int, List[int]]:
+    """EVOware site, column and row for tip ``tips[0]`` of ops on consecutive channels.
 
-  async def pick_up_tips(self, ops: List[Pickup], use_channels: List[int]):
-    """Pick up tips from a resource.
+    Wells/tip spots must be consecutive rows of one column, channel order = row order. On a
+    one-well labware (trough) EVOware's own tip positions are used: ``trough_column`` (1-based, of
+    the columns EVOware addresses, 12 for "Trough 300ml MCA96") with tip n over row n; the Y offsets
+    LiquidHandler computes to spread channels over a single well are therefore ignored, and other
+    offsets are refused.
+    """
+    tips = self._liha_channels(use_channels)
+    if len(ops) != len(use_channels):
+      raise ValueError("one operation per channel")
+    geometry = self.mca_geometry  # PLR resource -> EVOware placement (not MCA-specific)
+    labware = {geometry.labware_resource(op.resource) for op in ops}
+    if len(labware) != 1:
+      raise NotImplementedError("LiHa operations on more than one labware at a time")
+    lw = labware.pop()
+    site = self._liha_site(lw)
+    items = getattr(lw, "num_items", 0)
+    if items == 1:
+      for op in ops:
+        if op.offset.x != 0 or op.offset.z != 0:
+          raise NotImplementedError(f"offsets are not supported on {lw.name}, got {op.offset}")
+      return site, trough_column, tips[0], tips
+    for op in ops:
+      if op.offset != Coordinate.zero():
+        raise NotImplementedError(f"offsets are not supported, got {op.offset}")
+    if not isinstance(lw, ItemizedResource):
+      raise ValueError(f"{lw.name} has no wells or tip spots")
+    places = []
+    for op in ops:
+      index = lw.index_of_item(op.resource)
+      if index is None:
+        raise ValueError(f"{op.resource.name} is not an item of {lw.name}")
+      places.append(divmod(index, lw.num_items_y))  # (column, row), 0-based, column-major
+    column, row = places[0]
+    for (c, r), tip in zip(places, tips):
+      if c != column or r - row != tip - tips[0]:
+        raise NotImplementedError(
+          "LiHa channels must be over consecutive rows of one column, in channel order"
+        )
+    return site, column + 1, row + 1, tips
+
+  def _liha_errors(self, exc: TecanLihaError, use_channels: List[int], requested: int = 0):
+    """A ChannelizedError naming the failing channels (REE per tip, or RTS for DiTi errors), or
+    None when the instrument did not say which channels failed."""
+    errors: Dict[int, Exception] = {}
+    if exc.tip_errors:
+      for channel, code in exc.tip_errors.items():
+        if channel in use_channels:
+          errors[channel] = error_code_to_exception(EVOBackend.LIHA, code)
+    elif exc.mounted_tips is not None and exc.error_code in (25, 26):
+      for channel in use_channels:
+        if not exc.mounted_tips >> channel & 1:
+          errors[channel] = error_code_to_exception(EVOBackend.LIHA, exc.error_code)
+    elif exc.mounted_tips is not None and exc.error_code == 27:
+      for channel in use_channels:
+        if exc.mounted_tips >> channel & 1 and not requested >> channel & 1:
+          errors[channel] = error_code_to_exception(EVOBackend.LIHA, 27)
+    return ChannelizedError(errors, error=str(exc)) if errors else None
+
+  async def _liha_execute(self, plan: "liha.Plan", use_channels: List[int], requested: int = 0) -> list:
+    try:
+      return await self._liha_run(plan)
+    except TecanLihaError as exc:
+      channelized = self._liha_errors(exc, use_channels, requested)
+      if channelized is not None:
+        raise channelized from exc
+      raise
+
+  async def _liha_require_tips(self, use_channels: List[int], mounted: bool):
+    """RTS before a DiTi or liquid step: DiTis must (not) be on ``use_channels``."""
+    tips = await self.liha_mounted_tips()
+    wrong = [c for c in use_channels if bool(tips >> c & 1) != mounted]
+    if wrong:
+      error = NoTipError if mounted else HasTipError
+      what = "has no DiTi" if mounted else "already has a DiTi"
+      raise ChannelizedError({c: error(f"LiHa channel {c} {what} (RTS {tips:08b})") for c in wrong})
+
+  @staticmethod
+  def _liha_diti(ops: Sequence) -> str:
+    """EVOware DiTi labware of the mounted tips (all channels the same)."""
+    return mca.tip_rack_name(EVOBackend._mca_tip_model([op.tip for op in ops]))
+
+  @staticmethod
+  def _liha_check_ops(ops: Sequence) -> float:
+    """The one volume of the ops; refuses settings the liquid class decides on EVOware."""
+    for op in ops:
+      unsupported = {
+        "flow_rate": op.flow_rate,
+        "liquid_height": op.liquid_height,
+        "blow_out_air_volume": op.blow_out_air_volume,
+        "mix": op.mix,
+      }
+      given = [k for k, v in unsupported.items() if v is not None]
+      if given:
+        raise NotImplementedError(
+          f"LiHa {', '.join(given)}: not supported, the EVOware liquid class decides (leave None)"
+        )
+    volumes = {op.volume for op in ops}
+    if len(volumes) != 1:
+      raise NotImplementedError(f"LiHa needs the same volume on all channels, got {sorted(volumes)}")
+    volume = float(volumes.pop())
+    if not (math.isfinite(volume) and volume > 0):
+      raise ValueError(f"volume must be positive, got {volume}")
+    return volume
+
+  async def pick_up_tips(self, ops: List[Pickup], use_channels: List[int], slow_x: bool = True):
+    """EVOware "Get DiTis": fetch DiTis from a rack, one column, consecutive rows.
 
     Args:
-      ops: The pickup operations to perform.
-      use_channels: The channels to use for the pickup operations.
+      slow_x: move X with EVOware's slow settings around the fetch (default, as EVOware does on
+        instruments with a RoMa; see ``liha.plan_get_ditis``).
+    Raises ChannelizedError (NoTipError) for channels that did not get a DiTi.
     """
-
-    assert min(use_channels) >= self.num_channels - self.diti_count, (
-      f"DiTis can only be configured for the last {self.diti_count} channels"
-    )
-
-    # Get positions including offsets
-    x_positions, y_positions, z_positions = self._liha_positions(ops, use_channels)
-
-    # move channels
-    ys = int(ops[0].resource.get_absolute_size_y() * 10)
-    x, _ = self._first_valid(x_positions)
-    y, yi = self._first_valid(y_positions)
-    assert x is not None and y is not None
-    await self.liha.set_z_travel_height([self._z_range] * self.num_channels)
-    await self.liha.position_absolute_all_axis(
-      x, y - yi * ys, ys, [self._z_range] * self.num_channels
-    )
-
-    # aspirate airgap
-    pvl: List[Optional[int]] = [None] * self.num_channels
-    sep: List[Optional[int]] = [None] * self.num_channels
-    ppr: List[Optional[int]] = [None] * self.num_channels
+    for op in ops:
+      if not isinstance(op.resource, TipSpot):
+        raise ValueError(f"{op.resource.name} is not a tip spot")
+    site, column, row, tips = self._liha_target(ops, use_channels)
+    diti = self._liha_diti(ops)
+    if diti != site.labware:
+      raise ValueError(f"tip {diti!r} does not belong to rack {site.labware!r}")
+    plan = liha.plan_get_ditis(self._liha_geometry(), site, column, row, tips, slow_x)
+    await self._liha_require_tips(use_channels, mounted=False)
+    requested = liha.tip_mask(tips)
+    replies = await self._liha_execute(plan, use_channels, requested)
+    mounted = replies[-1]["data"][0]
+    missing = [c for c in use_channels if not mounted >> c & 1]
+    if missing:
+      raise ChannelizedError(
+        {c: NoTipError(f"LiHa channel {c} did not get a DiTi (RTS {mounted:08b})") for c in missing}
+      )
     for channel in use_channels:
-      pvl[channel] = 0
-      sep[channel] = 70 * 6  # ? 12, always 70?
-      ppr[channel] = 10 * 3  # ? 6
-    await self.liha.position_valve_logical(pvl)
-    await self.liha.set_end_speed_plunger(sep)
-    await self.liha.move_plunger_relative(ppr)
-
-    # get tips
-    first_z_start, _ = self._first_valid(z_positions["start"])
-    assert first_z_start is not None, "Could not find a valid z_start position"
-    await self.liha.get_disposable_tip(
-      self._bin_use_channels(use_channels), first_z_start - 227, 210
-    )
+      self._liha_contents()[channel] = None
 
   async def drop_tips(self, ops: List[Drop], use_channels: List[int]):
-    """Drops tips.
+    """EVOware "Drop DiTis" into the DiTi waste chute (grid 1, EVOware site 7).
+
+    The trash must be the chute on the deck: a ``Washstation_2Grid_DiTi_Waste`` on a
+    ``DiTi_Waste_3_Trough_Wash`` carrier at grid 1, PLR site 0 (``liha.DITI_WASTE``). EVOware's
+    position for it is fixed, so offsets (e.g. those ``discard_tips`` spreads over the trash) are
+    ignored. Returning DiTis to a rack (EVOware "Set DiTis Back") is not supported yet.
+    """
+    if not all(isinstance(op.resource, Trash) for op in ops):
+      raise NotImplementedError("LiHa DiTis can only be dropped into the DiTi waste (a Trash resource)")
+    for trash in {op.resource for op in ops}:
+      site = self._liha_site(trash)
+      if site != liha.DITI_WASTE:
+        raise ValueError(f"{trash.name} is at {site}, not the LiHa DiTi waste {liha.DITI_WASTE}")
+    tips = self._liha_channels(use_channels)
+    if len(ops) != len(use_channels):
+      raise ValueError("one operation per channel")
+    plan = liha.plan_drop_ditis(self._liha_geometry(), tips)
+    await self._liha_require_tips(use_channels, mounted=True)
+    replies = await self._liha_execute(plan, use_channels)
+    after = next(r for (c, _), r in zip(reversed(plan.commands), reversed(replies)) if c == "RTS")
+    still = [c for c in use_channels if after["data"][0] >> c & 1]
+    if still:
+      raise ChannelizedError(
+        {c: HasTipError(f"LiHa channel {c} still has its DiTi (RTS {after['data'][0]:08b})") for c in still}
+      )
+    for channel in use_channels:
+      self._liha_contents()[channel] = None
+
+  async def aspirate(
+    self,
+    ops: List[SingleChannelAspiration],
+    use_channels: List[int],
+    liquid_class: Optional[str] = None,
+    trough_column: int = 1,
+  ):
+    """EVOware "Aspirate" with liquid level detection, single mode, the same volume on all channels.
 
     Args:
-      ops: The drop operations to perform.
-      use_channels: The channels to use for the drop operations.
+      liquid_class: EVOware LiHa liquid class (default "Water free dispense").
+      trough_column: column EVOware addresses on a one-well labware (see ``_liha_target``).
+    The channels must hold only air (dispense first). The liquid class's air gaps are added.
+    From a trough pass its well once per channel with ``spread="custom"``: EVOware positions the
+    tips itself, and PLR cannot spread 8 channels over one 80 mm well.
     """
+    volume = self._liha_check_ops(ops)
+    site, column, row, tips = self._liha_target(ops, use_channels, trough_column)
+    contents = self._liha_contents()
+    full = [c for c in use_channels if contents.get(c) is not None]
+    if full:
+      raise RuntimeError(f"LiHa channels {full} already hold liquid or unknown contents; dispense first")
+    lc = self._liha_lc(liquid_class, volume)
+    geo = self._liha_geometry()
+    diti = self._liha_diti(ops)
+    await self._liha_require_tips(use_channels, mounted=True)
+    plunger = await self._liha_report("RPP", 0)
+    plan = liha.plan_aspirate(geo, lc, site, column, row, tips, volume, diti, plunger)
+    for channel in use_channels:
+      contents[channel] = UNKNOWN
+    await self._liha_execute(plan.search, use_channels)
+    detected = await self._liha_report("RPZ", 0)
+    await self._liha_execute(plan.finish(detected), use_channels)
+    for channel in use_channels:
+      contents[channel] = (volume, lc.name)
 
-    assert min(use_channels) >= self.num_channels - self.diti_count, (
-      f"DiTis can only be configured for the last {self.diti_count} channels"
+  async def dispense(
+    self, ops: List[SingleChannelDispense], use_channels: List[int], trough_column: int = 1
+  ):
+    """EVOware "Dispense", single mode: free or wet contact as the aspiration's liquid class says.
+
+    Dispenses everything the channels aspirated (EVOware dispenses all but the system trailing air
+    gap), so ``volume`` must equal the aspirated volume.
+    """
+    volume = self._liha_check_ops(ops)
+    site, column, row, tips = self._liha_target(ops, use_channels, trough_column)
+    contents = self._liha_contents()
+    held = {contents.get(c) for c in use_channels}
+    if len(held) != 1 or None in held or UNKNOWN in held:
+      raise RuntimeError(f"LiHa channels {use_channels} do not hold one known aspiration: {held}")
+    aspirated, name = cast(Tuple[float, str], held.pop())
+    if not math.isclose(volume, aspirated, abs_tol=1e-6):
+      raise NotImplementedError(
+        f"LiHa dispenses the whole aspiration ({aspirated} uL); partial dispense is not supported"
+      )
+    lc = self._liha_lc(name, volume)
+    geo = self._liha_geometry()
+    diti = self._liha_diti(ops)
+    await self._liha_require_tips(use_channels, mounted=True)
+    plunger = await self._liha_report("RPP", 0)
+    plan = liha.plan_dispense(geo, lc, site, column, row, tips, diti, plunger)
+    for channel in use_channels:
+      contents[channel] = UNKNOWN
+    await self._liha_execute(plan.first, use_channels)
+    if plan.finish_args is not None:
+      detected = await self._liha_report("RPZ", 0)
+      await self._liha_execute(plan.finish(detected), use_channels)
+    for channel in use_channels:
+      contents[channel] = None
+
+  # ============== LiHa wash ==============
+  #
+  # Command sequences come from ``liha.py`` (reproducing EVOware run logs). The
+  # XY move is preceded by ``x_coordinator().clear_path("liha", x)``.
+
+  def _liha_geometry(self) -> "liha.LihaGeometry":
+    config = getattr(self, "evoware_config", None)
+    if config is None:
+      raise RuntimeError("LiHa geometry needs the EVOware configuration: call load_evoware_config()")
+    if getattr(self, "_z_range", None) is None:
+      raise RuntimeError("LiHa Z range unknown, forgot to call `setup`?")
+    deck = getattr(self, "_deck", None)
+    if deck is not None:  # labware carrying its own LiHa correction (e.g. DiTi_1000ul_LiHa_box)
+      for resource in deck.get_all_resources():
+        if getattr(resource, "liha_offset", None) is not None:
+          self._liha_site(resource)
+    return liha.LihaGeometry(
+      config, self._z_range, self.liha_site_offsets, self.liha_site_z_offsets
     )
-    assert all(isinstance(op.resource, (Trash, TipSpot)) for op in ops), (
-      "Must drop in waste container or tip rack"
+
+  async def _liha_send(self, command: str, params=None):
+    # EVOware re-sends S-commands (SEP, SPP, SHZ, SSM) every time; bypass the set-command cache.
+    self._cache.pop(EVOBackend.LIHA + command, None)
+    return await self.send_command(EVOBackend.LIHA, command=command, params=params)
+
+  async def liha_mounted_tips(self) -> int:
+    """Mounted disposable tips as a channel bit mask (RTS; 0 = none, bit 0 = channel 1)."""
+    data = (await self._liha_send("RTS"))["data"]
+    if not data or type(data[0]) is not int:
+      raise TecanError(f"unexpected LiHa RTS response {data!r}", EVOBackend.LIHA, 0)
+    return data[0]
+
+  async def liha_wash_tips(
+    self,
+    waste: "liha.LihaSite" = liha.WASH_WASTE,
+    waste_volume_ml: float = 12.0,
+    waste_delay_ms: int = 50,
+    air_gap_ul: float = 10,
+    air_gap_speed: float = 70,
+    use_channels: Optional[List[int]] = None,
+  ):
+    """Flush the bare DiTi adapters with system liquid over the wash station waste,
+    as EVOware's "Wash Tips" (``flushLiHa.esc``): ``waste_volume_ml`` per tip in
+    full dilutor strokes, then a system trailing air gap of ``air_gap_ul``.
+
+    Refused while disposable tips are mounted (RTS not 0): the system liquid would
+    go into the tips. Defaults are those of ``flushLiHa.esc`` on this instrument.
+    """
+    if not self.liha_connected:
+      raise RuntimeError("no LiHa on this instrument")
+    channels = list(range(self.num_channels)) if use_channels is None else use_channels
+    plan = liha.plan_wash(
+      self._liha_geometry(), waste, waste_volume_ml, waste_delay_ms, air_gap_ul, air_gap_speed, channels
+    )
+    mounted = await self.liha_mounted_tips()
+    if mounted:
+      raise RuntimeError(f"LiHa has disposable tips mounted (RTS {mounted}); drop them before washing")
+    await self._liha_run(plan)
+
+  # ============== MCA 96-channel head ==============
+  #
+  # Command sequences come from ``mca.py`` (reproducing EVOware captures). Every
+  # XY move is preceded by ``x_coordinator().clear_path("mca", x)`` so LiHa and
+  # RoMa are pushed aside first, and Z is at travel height before any XY move.
+  # The backend tracks the plunger; on any error its state becomes unknown and
+  # the next liquid operation is refused until tips are picked up again.
+
+  def load_evoware_config(self, database_dir):
+    """Load the instrument's EVOware ``database`` folder: Carrier.cfg and
+    evoware.inf (MCA positions, computed exactly as EVOware does) and the liquid
+    classes DefaultLCs.XML / CustomLCs.XML."""
+    from pylabrobot.legacy.liquid_handling.backends.tecan import evoware_config
+    from pylabrobot.legacy.liquid_handling.backends.tecan.evoware_liquid_classes import (
+      LiquidClassLibrary,
     )
 
-    # Get positions including offsets
-    x_positions, y_positions, _ = self._liha_positions(ops, use_channels)
+    self.evoware_config = evoware_config.load(database_dir)
+    self._mca_geometry_obj = mca.McaGeometry(self.evoware_config)
+    self.liquid_classes = LiquidClassLibrary.from_database(database_dir)
 
-    # move channels
-    ys = int(ops[0].resource.get_absolute_size_y() * 10)  # was 90
-    x, _ = self._first_valid(x_positions)
-    y, yi = self._first_valid(y_positions)
-    assert x is not None and y is not None
-    await self.liha.set_z_travel_height([self._z_range] * self.num_channels)
-    await self.liha.position_absolute_all_axis(
-      x,
-      y - yi * ys,
-      ys,
-      [self._z_range] * self.num_channels,
-    )
+  @property
+  def mca_geometry(self) -> "mca.McaGeometry":
+    geo = getattr(self, "_mca_geometry_obj", None)
+    if geo is None:
+      raise RuntimeError("MCA geometry needs the EVOware configuration: call load_evoware_config()")
+    return geo
 
-    # TODO check channel positions match resource positions for z-axis
-    await self.liha._drop_disposable_tip(self._bin_use_channels(use_channels), discard_height=0)
+  def _mca_liquid_class(self, tip_model: str, volume: float, name: Optional[str]):
+    library = getattr(self, "liquid_classes", None)
+    if library is None:
+      raise RuntimeError("MCA liquid classes need the EVOware configuration: call load_evoware_config()")
+    return library.mca(name or mca.DEFAULT_CLASS[mca.tip_rack_name(tip_model)], volume)
+
+  def _mca_plunger(self) -> "mca.PlungerState":
+    if getattr(self, "_mca_plunger_state", None) is None:
+      self._mca_plunger_state = mca.PlungerState()
+    return self._mca_plunger_state
+
+  async def _mca_send(self, command: str, params=None):
+    # EVOware re-sends S-commands (SLP, SSM, SPA) every time; bypass the set-command cache.
+    self._cache.pop(EVOBackend.MCA + command, None)
+    return await self.send_command(EVOBackend.MCA, command=command, params=params)
+
+  async def mca_position(self) -> Tuple[int, int, int, int]:
+    """Current MCA X, Y, Z, G (firmware units, RPA 0)."""
+    data = (await self._mca_send("RPA", [0]))["data"]
+    if len(data) < 4 or any(type(v) is not int for v in data[:4]):
+      raise TecanError(f"unexpected MCA RPA response {data!r}", EVOBackend.MCA, 0)
+    return (data[0], data[1], data[2], data[3])
+
+  async def _mca_execute(self, plan: "mca.Plan"):
+    """Send a plan in order; verify plunger checks; clear X before XY moves."""
+    plunger = self._mca_plunger()
+    try:
+      for index, (command, params) in enumerate(plan.commands):
+        if command == "WAIT":
+          await asyncio.sleep(params[0] / 1000)
+          continue
+        if command == "PAA" and params and params[0] is not None:
+          await self.x_coordinator().clear_path("mca", int(params[0]))
+        resp = await self._mca_send(command, params)
+        if index in plan.checks:
+          got = (resp or {}).get("data", [None])[0]
+          if type(got) is not int or abs(got - plan.checks[index]) > mca.PLUNGER_TOLERANCE:
+            raise TecanError(
+              f"MCA plunger at {got}, expected {plan.checks[index]}; stopping", EVOBackend.MCA, 0
+            )
+    except BaseException:
+      plunger.reset(None)
+      raise
+
+  async def _mca_z_speed(self) -> int:
+    return int((await self._mca_send("RPA", [2]))["data"][2])
+
+  @staticmethod
+  def _mca_tip_model(tips) -> str:
+    models = {getattr(t, "model", None) for t in tips if t is not None}
+    if len(models) != 1 or None in models:
+      raise ValueError(f"MCA needs one known tip type on all channels, got {models}")
+    return models.pop()
+
+  def _mca_head_tip_model(self) -> str:
+    head = self.head96 or {}
+    return self._mca_tip_model([t.get_tip() for t in head.values() if t.has_tip])
+
+  @staticmethod
+  def _mix_spec(mix) -> Optional["mca.MixSpec"]:
+    if mix is None:
+      return None
+    return mca.MixSpec(mix.volume, mix.repetitions, mix.flow_rate)
 
   async def pick_up_tips96(self, pickup: PickupTipRack):
-    raise NotImplementedError("MCA not implemented yet")
+    here = await self.mca_position()
+    plan = mca.plan_pick_up(self.mca_geometry, pickup.resource, pickup.offset, here[:3], self._mca_plunger())
+    try:
+      await self._mca_execute(plan)
+    except TecanTipsNotFetchedError:
+      # ATF leaves the head at Zend; raise it before reporting (as EVOware does)
+      await self._mca_send("PAA", [None, None, mca.Z_TRAVEL])
+      raise
 
-  async def drop_tips96(self, drop: DropTipRack):
-    raise NotImplementedError("MCA not implemented yet")
+  async def drop_tips96(self, drop: DropTipRack, allow_liquid: bool = False):
+    """Return tips into a tip rack. Refused while the tips hold liquid (ATD would
+    push it into the rack) unless ``allow_liquid``."""
+    if not isinstance(drop.resource, TipRack):
+      raise NotImplementedError("MCA tip drop is supported into a tip rack (return) only")
+    here = await self.mca_position()
+    plan = mca.plan_drop(self.mca_geometry, drop.resource, drop.offset, here[:3], self._mca_plunger(),
+                         allow_liquid=allow_liquid)
+    await self._mca_execute(plan)
+
+  @staticmethod
+  def _mca_liquid_resource(op) -> Resource:
+    if isinstance(op, (MultiHeadAspirationPlate, MultiHeadDispensePlate)):
+      return op.wells[0].parent
+    return op.container
 
   async def aspirate96(
-    self, aspiration: Union[MultiHeadAspirationPlate, MultiHeadAspirationContainer]
+    self,
+    aspiration: Union[MultiHeadAspirationPlate, MultiHeadAspirationContainer],
+    liquid_class: Optional[str] = None,
+    multi_dispense: bool = False,
   ):
-    raise NotImplementedError("MCA not implemented yet")
+    """Aspirate with all 96 channels using an EVOware liquid class.
+
+    Args:
+      liquid_class: EVOware liquid class name (default: "Water free dispense" for
+        200 uL MCA96 tips, "Water wet contact" for 50 uL).
+      multi_dispense: use the class's multi-pipetting parameters (excess volume) so
+        the liquid can be dispensed in several portions; empty the excess with
+        ``mca_empty_tips``.
+    ``aspiration.mix`` mixes in the source before aspirating (EVOware "mix before aspirate").
+    Further aspirations into tips that already hold liquid are allowed.
+    """
+    tip = self._mca_tip_model(aspiration.tips)
+    lc = self._mca_liquid_class(tip, aspiration.volume, liquid_class)
+    target = mca.LiquidTarget(
+      self.mca_geometry, self._mca_liquid_resource(aspiration), aspiration.offset, tip,
+      aspiration.liquid_height,
+    )
+    here = await self.mca_position()
+    z_speed = await self._mca_z_speed()
+    plan = mca.plan_aspirate(
+      target, aspiration.volume, lc, here[:3], self._mca_plunger(),
+      flow_rate=aspiration.flow_rate, blow_out_air_volume=aspiration.blow_out_air_volume,
+      current_z_speed=z_speed, mix=self._mix_spec(aspiration.mix), multi=multi_dispense,
+    )
+    await self._mca_execute(plan)
 
   async def dispense96(self, dispense: Union[MultiHeadDispensePlate, MultiHeadDispenseContainer]):
-    raise NotImplementedError("MCA not implemented yet")
+    """Dispense with all 96 channels using the liquid class of the aspiration.
+
+    Partial volumes are allowed. Dispensing everything in single mode empties the
+    tips completely, as EVOware does. ``dispense.mix`` mixes after a full dispense.
+    """
+    tip = self._mca_tip_model(dispense.tips)
+    target = mca.LiquidTarget(
+      self.mca_geometry, self._mca_liquid_resource(dispense), dispense.offset, tip,
+      dispense.liquid_height,
+    )
+    here = await self.mca_position()
+    z_speed = await self._mca_z_speed()
+    plan = mca.plan_dispense(
+      target, dispense.volume, here[:3], self._mca_plunger(),
+      flow_rate=dispense.flow_rate, current_z_speed=z_speed, mix=self._mix_spec(dispense.mix),
+    )
+    await self._mca_execute(plan)
+
+  async def mca_empty_tips(self, resource: Resource, offset: Coordinate = Coordinate.zero()):
+    """Expel everything left in the tips (e.g. multi-pipetting excess) into ``resource``."""
+    tip = self._mca_head_tip_model()
+    target = mca.LiquidTarget(self.mca_geometry, resource, offset, tip)
+    here = await self.mca_position()
+    await self._mca_execute(mca.plan_empty(target, here[:3], self._mca_plunger()))
+
+  async def mix96(
+    self,
+    resource: Resource,
+    volume: float,
+    repetitions: int,
+    flow_rate: Optional[float] = None,
+    offset: Coordinate = Coordinate.zero(),
+    liquid_height: Optional[float] = None,
+    liquid_class: Optional[str] = None,
+  ):
+    """EVOware MCAMix: air gap, immerse, ``repetitions`` cycles of ``volume`` uL
+    without leaving the liquid, then raise to travel height.
+
+    ``resource`` is a plate or trough. ``flow_rate`` (uL/s) sets both strokes;
+    None keeps the liquid class speeds (EVOware: 50 uL/s in, 400 uL/s out).
+    """
+    tip = self._mca_head_tip_model()
+    lc = self._mca_liquid_class(tip, volume, liquid_class)
+    target = mca.LiquidTarget(self.mca_geometry, resource, offset, tip, liquid_height)
+    here = await self.mca_position()
+    plan = mca.plan_mix(
+      target, volume, repetitions, lc, here[:3], self._mca_plunger(), flow_rate=flow_rate
+    )
+    await self._mca_execute(plan)
+
+  # MCA96 plate gripper (optional hardware; NOT tested: this instrument has none).
+  async def mca_pick_up_plate(self, resource: Resource, z_grip: int, grip_width: int, open_width: int):
+    """Grip ``resource`` with the MCA96 gripper (firmware units: Z, G widths in 1/10 mm).
+    Fails with TecanError 9 "Plate not fetched" if no plate is gripped."""
+    here = await self.mca_position()
+    await self._mca_execute(mca.plan_grip(self.mca_geometry, resource, here[:3], z_grip, grip_width, open_width))
+
+  async def mca_drop_plate(self, destination: Resource, z_release: int, open_width: int):
+    """Put a gripped plate down over ``destination`` and open the gripper."""
+    here = await self.mca_position()
+    await self._mca_execute(mca.plan_release(self.mca_geometry, destination, here[:3], z_release, open_width))
+
+  async def mca_initialize_head_drive(self):
+    """Initialize the MCA plunger (EVOware sequence: G open, PID, ASH0 x2, PPA ready).
+
+    Needed once after power-on: PLR ``setup()`` sends ``PIA``, which does not
+    initialize the plunger. Requires the head at travel height and no tips.
+    """
+    here = await self.mca_position()
+    if here[2] != mca.Z_TRAVEL:
+      raise RuntimeError(f"MCA must be at travel height Z {mca.Z_TRAVEL} for head drive init (Z={here[2]})")
+    if self.head96 and any(t.has_tip for t in self.head96.values()):
+      raise RuntimeError("remove MCA tips before initializing the head drive")
+    await self._mca_execute(mca.plan_initialize_head_drive(self._mca_plunger()))
+
+  async def mca_move_xyz(self, x: Optional[int] = None, y: Optional[int] = None, z: Optional[int] = None):
+    """Move the MCA in firmware units. XY moves happen at Z travel height."""
+    here = await self.mca_position()
+    plan = mca.Plan()
+    if x is not None or y is not None:
+      mca.plan_move_xy(plan, here[0] if x is None else x, here[1] if y is None else y, here[:3])
+    if z is not None:
+      plan.add("PAA", None, None, z)
+    await self._mca_execute(plan)
+
+  async def mca_move_to(
+    self, resource: Resource, offset: Coordinate = Coordinate.zero(), z: Optional[int] = None
+  ):
+    """Move the MCA (channel A1) over ``resource``; Z stays at travel height unless given."""
+    x, y = self.mca_geometry.xy(resource, offset)
+    await self.mca_move_xyz(x, y, z)
 
   async def pick_up_resource(self, pickup: ResourcePickup):
     # TODO: implement PnP for moving tubes
@@ -698,203 +1193,6 @@ class EVOBackend(TecanLiquidHandler):
     for channel in use_channels:
       b += 1 << channel
     return b
-
-  def _liha_positions(
-    self,
-    ops: Sequence[Union[SingleChannelAspiration, SingleChannelDispense, Pickup, Drop]],
-    use_channels: List[int],
-  ) -> Tuple[
-    List[Optional[int]],
-    List[Optional[int]],
-    Dict[str, List[Optional[int]]],
-  ]:
-    """Creates lists of x, y, and z positions used by LiHa ops."""
-
-    x_positions: List[Optional[int]] = [None] * self.num_channels
-    y_positions: List[Optional[int]] = [None] * self.num_channels
-    z_positions: Dict[str, List[Optional[int]]] = {
-      "travel": [None] * self.num_channels,
-      "start": [None] * self.num_channels,
-      "dispense": [None] * self.num_channels,
-      "max": [None] * self.num_channels,
-    }
-
-    def get_z_position(z, z_off, tip_length):
-      # TODO: simplify z units
-      return int(self._z_range - z + z_off * 10 + tip_length)  # TODO: verify z formula
-
-    for i, (op, channel) in enumerate(zip(ops, use_channels)):
-      location = ops[i].resource.get_location_wrt(self.deck) + op.resource.center()
-      x_positions[channel] = int((location.x - 100 + op.offset.x) * 10)
-      y_positions[channel] = int((346.5 - location.y + op.offset.y) * 10)  # TODO: verify
-
-      par = ops[i].resource.parent
-      if not isinstance(par, (TecanPlate, TecanTipRack)):
-        raise ValueError(f"Operation is not supported by resource {par}.")
-      # TODO: calculate defaults when z-attribs are not specified
-      tip_length = int(ops[i].tip.get_size_z() * 10)
-      # z travel seems to only be used for aspiration and dispense right now
-      if isinstance(op, (SingleChannelAspiration, SingleChannelDispense)):
-        z_positions["travel"][channel] = round(self._z_traversal_height * 10)
-      z_positions["start"][channel] = get_z_position(
-        par.z_start, par.get_location_wrt(self.deck).z + op.offset.z, tip_length
-      )
-      z_positions["dispense"][channel] = get_z_position(
-        par.z_dispense, par.get_location_wrt(self.deck).z + op.offset.z, tip_length
-      )
-      z_positions["max"][channel] = get_z_position(
-        par.z_max, par.get_location_wrt(self.deck).z + op.offset.z, tip_length
-      )
-
-    return x_positions, y_positions, z_positions
-
-  def _aspirate_airgap(
-    self,
-    use_channels: List[int],
-    tecan_liquid_classes: List[Optional[TecanLiquidClass]],
-    airgap: str,
-  ) -> Tuple[List[Optional[int]], List[Optional[int]], List[Optional[int]]]:
-    """Creates parameters used to aspirate airgaps.
-
-    Args:
-      airgap: `lag` for leading airgap, `tag` for trailing airgap.
-
-    Returns:
-      pvl: position_valve_logical
-      sep: set_end_speed_plunger
-      ppr: move_plunger_relative
-    """
-
-    pvl: List[Optional[int]] = [None] * self.num_channels
-    sep: List[Optional[int]] = [None] * self.num_channels
-    ppr: List[Optional[int]] = [None] * self.num_channels
-
-    for i, channel in enumerate(use_channels):
-      tlc = tecan_liquid_classes[i]
-      assert tlc is not None
-      pvl[channel] = 0
-      if airgap == "lag":
-        sep[channel] = int(
-          tlc.aspirate_lag_speed * 6
-        )  # 6? TODO: verify step unit (half step per second)
-        ppr[channel] = int(tlc.aspirate_lag_volume * 3)  # 3? (Relative position in full steps)
-      elif airgap == "tag":
-        sep[channel] = int(tlc.aspirate_tag_speed * 6)  # 6?
-        ppr[channel] = int(tlc.aspirate_tag_volume * 3)  # 3?
-
-    return pvl, sep, ppr
-
-  def _liquid_detection(
-    self,
-    use_channels: List[int],
-    tecan_liquid_classes: List[Optional[TecanLiquidClass]],
-  ) -> Tuple[List[Optional[int]], List[Optional[int]], List[Optional[int]]]:
-    """Creates parameters use for liquid detection.
-
-    Returns:
-      ssl: set_search_speed
-      sdl: set_search_retract_distance
-      sbl: set_search_submerge
-    """
-
-    ssl: List[Optional[int]] = [None] * self.num_channels
-    sdl: List[Optional[int]] = [None] * self.num_channels
-    sbl: List[Optional[int]] = [None] * self.num_channels
-
-    for i, channel in enumerate(use_channels):
-      tlc = tecan_liquid_classes[i]
-      assert tlc is not None
-      ssl[channel] = int(tlc.lld_speed * 10)
-      sdl[channel] = int(tlc.lld_distance * 10)
-      sbl[channel] = int(tlc.aspirate_lld_offset * 10)
-
-    return ssl, sdl, sbl
-
-  def _aspirate_action(
-    self,
-    ops: Sequence[Union[SingleChannelAspiration, SingleChannelDispense]],
-    use_channels: List[int],
-    tecan_liquid_classes: List[Optional[TecanLiquidClass]],
-    zadd: List[Optional[int]],
-  ) -> Tuple[
-    List[Optional[int]],
-    List[Optional[int]],
-    List[Optional[int]],
-    List[Optional[int]],
-    List[Optional[int]],
-  ]:
-    """Creates parameters used for aspiration action.
-
-    Args:
-      zadd: distance moved while aspirating
-
-    Returns:
-      ssz: set_slow_speed_z
-      sep: set_end_speed_plunger
-      stz: set_tracking_distance_z
-      mtr: move_tracking_relative
-      ssz_r: set_slow_speed_z retract
-    """
-
-    ssz: List[Optional[int]] = [None] * self.num_channels
-    sep: List[Optional[int]] = [None] * self.num_channels
-    stz: List[Optional[int]] = [-z if z else None for z in zadd]  # TODO: verify max cutoff
-    mtr: List[Optional[int]] = [None] * self.num_channels
-    ssz_r: List[Optional[int]] = [None] * self.num_channels
-
-    for i, channel in enumerate(use_channels):
-      tlc = tecan_liquid_classes[i]
-      z = zadd[channel]
-      assert tlc is not None and z is not None
-      flow_rate = ops[i].flow_rate or tlc.aspirate_speed
-      sep[channel] = int(flow_rate * 6)  # 6?
-      ssz[channel] = round(z * flow_rate / ops[i].volume)
-      volume = tlc.compute_corrected_volume(ops[i].volume)
-      mtr[channel] = round(volume * 3)  # 3?  # Relative position in full steps
-      ssz_r[channel] = int(tlc.aspirate_retract_speed * 10)
-
-    return ssz, sep, stz, mtr, ssz_r
-
-  def _dispense_action(
-    self,
-    ops: Sequence[Union[SingleChannelAspiration, SingleChannelDispense]],
-    use_channels: List[int],
-    tecan_liquid_classes: List[Optional[TecanLiquidClass]],
-  ) -> Tuple[
-    List[Optional[int]],
-    List[Optional[int]],
-    List[Optional[int]],
-    List[Optional[int]],
-  ]:
-    """Creates parameters used for dispense action.
-
-    Returns:
-      sep: set_end_speed_plunger
-      spp: set_stop_speed_plunger
-      stz: set_tracking_distance_z
-      mtr: move_tracking_relative
-    """
-
-    sep: List[Optional[int]] = [None] * self.num_channels
-    spp: List[Optional[int]] = [None] * self.num_channels
-    stz: List[Optional[int]] = [None] * self.num_channels
-    mtr: List[Optional[int]] = [None] * self.num_channels
-
-    for i, channel in enumerate(use_channels):
-      tlc = tecan_liquid_classes[i]
-      assert tlc is not None
-      flow_rate = ops[i].flow_rate or tlc.dispense_speed
-      sep[channel] = int(flow_rate * 6)  # 6?
-      spp[channel] = int(tlc.dispense_breakoff * 6)  # 6? half step per second
-      stz[channel] = 0
-      volume = (
-        tlc.compute_corrected_volume(ops[i].volume)
-        + tlc.aspirate_lag_volume
-        + tlc.aspirate_tag_volume
-      )
-      mtr[channel] = -round(volume * 3)  # 3?
-
-    return sep, spp, stz, mtr
 
   def _roma_positions(
     self, resource: Resource, offset: Coordinate, z_range: int

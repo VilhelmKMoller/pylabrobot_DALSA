@@ -922,3 +922,38 @@ def Microplate_48_Well(name: str, with_lid: bool = False) -> TecanPlate:
       name_prefix=name,
     ),
   )
+
+
+def Trough_300ml_MCA96(name: str) -> TecanPlate:
+  """EVOware labware "Trough 300ml MCA96" (one reservoir for the 96-channel MCA).
+
+  Heights and area from EVOware Carrier.cfg (z_max 2034, z_start 1791,
+  z_dispense 1857, z_travel 1640, area 9760; Tecan units). The reservoir
+  outline and height in PLR are approximate (SBS footprint).
+  """
+  return TecanPlate(
+    name=name,
+    size_x=127.8,
+    size_y=85.4,
+    size_z=40.0,
+    model="Trough_300ml_MCA96",
+    z_start=1791.0,
+    z_dispense=1857.0,
+    z_max=2034.0,
+    area=9760.0,
+    ordered_items=create_ordered_items_2d(
+      Well,
+      num_items_x=1,
+      num_items_y=1,
+      dx=3.9,
+      dy=2.7,
+      dz=1.0,
+      item_dx=120.0,
+      item_dy=80.0,
+      size_x=120.0,
+      size_y=80.0,
+      size_z=39.0,
+      max_volume=300000,
+      name_prefix=name,
+    ),
+  )

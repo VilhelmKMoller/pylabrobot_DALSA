@@ -1,0 +1,950 @@
+{
+ "source": "Distinct LiHa (C5) error replies in EVOware AuditTrail logs, with the report EVOware sent next (REE/RTS) and its reply. Firmware LIHACU-V1.60-02/2010. Replies paired with commands first-in first-out (scripts/evoware_log.py, fixed 2026-11-21). Written by scripts/extract_liha_error_fixtures.py.",
+ "cases": [
+  {
+   "log": "EVO_20240917_123248.LOG",
+   "command": "PAA125,3059,90",
+   "error": 3,
+   "error_text": "",
+   "follow_up": null,
+   "follow_up_status": null,
+   "follow_up_reply": null
+  },
+  {
+   "log": "EVO_20240917_123248.LOG",
+   "command": "PSY90",
+   "error": 3,
+   "error_text": "",
+   "follow_up": null,
+   "follow_up_status": null,
+   "follow_up_reply": null
+  },
+  {
+   "log": "EVO_20240917_123248.LOG",
+   "command": "PRY1",
+   "error": 3,
+   "error_text": "",
+   "follow_up": null,
+   "follow_up_status": null,
+   "follow_up_reply": null
+  },
+  {
+   "log": "EVO_20240917_123248.LOG",
+   "command": "PAZ2100,2100,2100,2100,2100,2100,2100,2100",
+   "error": 250,
+   "error_text": "Command blocked due open doorlocks",
+   "follow_up": null,
+   "follow_up_status": null,
+   "follow_up_reply": null
+  },
+  {
+   "log": "EVO_20240919_140105.LOG",
+   "command": "MDT255,,,,2,2,2,2,2,2,2,2",
+   "error": 24,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@XXXXXXXX"
+  },
+  {
+   "log": "EVO_20240920_101419.LOG",
+   "command": "AGT255,783,210,0",
+   "error": 25,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "0"
+  },
+  {
+   "log": "EVO_20240920_101419.LOG",
+   "command": "AGT255,810,210,0",
+   "error": 25,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "0"
+  },
+  {
+   "log": "EVO_20240920_101419.LOG",
+   "command": "AGT255,750,210,0",
+   "error": 25,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "0"
+  },
+  {
+   "log": "EVO_20240920_101419.LOG",
+   "command": "AGT255,710,210,0",
+   "error": 25,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "255"
+  },
+  {
+   "log": "EVO_20240920_101419.LOG",
+   "command": "AGT119,710,210,0",
+   "error": 27,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "255"
+  },
+  {
+   "log": "EVO_20240920_101419.LOG",
+   "command": "PAA125,2514,90,1075,1075,1075,1075,1075,1075,1075,1075",
+   "error": 10,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@J@@@@@@@"
+  },
+  {
+   "log": "EVO_20240920_104306.LOG",
+   "command": "PAA11385,-360,90,1075,1075,1075,1075,1075,1075,1075,1075",
+   "error": 10,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@JJJJJJJJ"
+  },
+  {
+   "log": "EVO_20240920_105838.LOG",
+   "command": "AGT255,700,210,0",
+   "error": 25,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "0"
+  },
+  {
+   "log": "EVO_20240920_105938.LOG",
+   "command": "PAA125,2829,90",
+   "error": 3,
+   "error_text": "",
+   "follow_up": null,
+   "follow_up_status": null,
+   "follow_up_reply": null
+  },
+  {
+   "log": "EVO_20240920_141928.LOG",
+   "command": "PAA245,2514,90,1075,1075,1075,1075,1075,1075,1075,1075",
+   "error": 10,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@JJJJJJ"
+  },
+  {
+   "log": "EVO_20240920_144920.LOG",
+   "command": "AST255,0",
+   "error": 27,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "2"
+  },
+  {
+   "log": "EVO_20240924_102628.LOG",
+   "command": "PRY-1",
+   "error": 3,
+   "error_text": "",
+   "follow_up": null,
+   "follow_up_status": null,
+   "follow_up_reply": null
+  },
+  {
+   "log": "EVO_20240924_103736.LOG",
+   "command": "PAA11385,-990,90,2100,2100,2100,2100,2100,2100,2100,2100",
+   "error": 3,
+   "error_text": "",
+   "follow_up": null,
+   "follow_up_status": null,
+   "follow_up_reply": null
+  },
+  {
+   "log": "EVO_20240924_104158.LOG",
+   "command": "AGT128,700,210,0",
+   "error": 25,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "0"
+  },
+  {
+   "log": "EVO_20240924_110520.LOG",
+   "command": "PAA126,2855,90",
+   "error": 3,
+   "error_text": "",
+   "follow_up": null,
+   "follow_up_status": null,
+   "follow_up_reply": null
+  },
+  {
+   "log": "EVO_20250908_135018.LOG",
+   "command": "AGT1,700,210,0",
+   "error": 25,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "0"
+  },
+  {
+   "log": "EVO_20250908_135018.LOG",
+   "command": "MDT1,,,,3,0,0,0,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@I@@@@@@@"
+  },
+  {
+   "log": "EVO_20251001_114650.LOG",
+   "command": "MDT1,,,,1,0,0,0,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@I@@@@@@@"
+  },
+  {
+   "log": "EVO_20251001_114650.LOG",
+   "command": "MDT2,,,,0,1,0,0,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@I@@@@@@"
+  },
+  {
+   "log": "EVO_20251001_114650.LOG",
+   "command": "MDT4,,,,0,0,1,0,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@I@@@@@"
+  },
+  {
+   "log": "EVO_20251001_114650.LOG",
+   "command": "MDT8,,,,0,0,0,1,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@@I@@@@"
+  },
+  {
+   "log": "EVO_20251001_114650.LOG",
+   "command": "MDT16,,,,0,0,0,0,1,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@@@I@@@"
+  },
+  {
+   "log": "EVO_20251001_114650.LOG",
+   "command": "MDT32,,,,0,0,0,0,0,1,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@@@@I@@"
+  },
+  {
+   "log": "EVO_20251001_114650.LOG",
+   "command": "MDT64,,,,0,0,0,0,0,0,1,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@@@@@I@"
+  },
+  {
+   "log": "EVO_20251001_114650.LOG",
+   "command": "MDT128,,,,0,0,0,0,0,0,0,1",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@@@@@@I"
+  },
+  {
+   "log": "EVO_20251001_125909.LOG",
+   "command": "MDT255,,,,51,51,51,51,51,51,51,51",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@II@@@@I@"
+  },
+  {
+   "log": "EVO_20251001_130506.LOG",
+   "command": "MDT255,,,,3,3,3,3,3,3,3,3",
+   "error": 10,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@IIWWWWIJ"
+  },
+  {
+   "log": "EVO_20251001_130942.LOG",
+   "command": "MDT255,,,,4,4,4,4,4,4,4,4",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@II@@@@II"
+  },
+  {
+   "log": "EVO_20251001_131140.LOG",
+   "command": "MDT255,,,,3,3,3,3,3,3,3,3",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@II@@@@II"
+  },
+  {
+   "log": "EVO_20251001_131949.LOG",
+   "command": "MDT255,,,,66,66,66,66,66,66,66,66",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@II@@@@II"
+  },
+  {
+   "log": "EVO_20251001_132319.LOG",
+   "command": "PAZ2913,,,,,,,",
+   "error": 3,
+   "error_text": "",
+   "follow_up": null,
+   "follow_up_status": null,
+   "follow_up_reply": null
+  },
+  {
+   "log": "EVO_20251001_132704.LOG",
+   "command": "MDT255,,,,334,334,334,334,334,334,334,334",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@II@@@@II"
+  },
+  {
+   "log": "EVO_20251028_113859.LOG",
+   "command": "MDT255,,,,3,3,3,3,3,3,3,3",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@IIIIIIII"
+  },
+  {
+   "log": "EVO_20251031_120259.LOG",
+   "command": "MDT1,,,,33,0,0,0,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@I@@@@@@@"
+  },
+  {
+   "log": "EVO_20251031_122116.LOG",
+   "command": "MDT1,,,,33,0,0,0,0,0,0,0",
+   "error": 11,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@K@@@@@@@"
+  },
+  {
+   "log": "EVO_20251104_140136.LOG",
+   "command": "MDT255,,,,17,33,17,33,17,33,17,33",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@IIIIIIII"
+  },
+  {
+   "log": "EVO_20251104_140136.LOG",
+   "command": "MDT15,,,,17,33,17,33,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@IIII@@@@"
+  },
+  {
+   "log": "EVO_20251104_140136.LOG",
+   "command": "MDT240,,,,0,0,0,0,17,33,17,33",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@@@IIII"
+  },
+  {
+   "log": "EVO_20251104_141806.LOG",
+   "command": "MDT1,,,,17,0,0,0,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@I@@@@@@@"
+  },
+  {
+   "log": "EVO_20251105_140625.LOG",
+   "command": "MDT255,,,,17,33,17,33,17,33,17,33",
+   "error": 11,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@@@@K@@"
+  },
+  {
+   "log": "EVO_20251105_141010.LOG",
+   "command": "MDT255,,,,49,80,49,80,49,80,49,80",
+   "error": 11,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@K@K@K@K"
+  },
+  {
+   "log": "EVO_20251105_141010.LOG",
+   "command": "MDT170,,,,0,80,0,80,0,80,0,80",
+   "error": 10,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@@J@@@@"
+  },
+  {
+   "log": "EVO_20251105_141010.LOG",
+   "command": "MDT170,,,,0,80,0,80,0,80,0,80",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@I@I@@@@"
+  },
+  {
+   "log": "EVO_20251105_142711.LOG",
+   "command": "AGT3,700,210,0",
+   "error": 25,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "1"
+  },
+  {
+   "log": "EVO_20251106_114000.LOG",
+   "command": "AGT3,685,210,0",
+   "error": 10,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@JJ@@@@@@"
+  },
+  {
+   "log": "EVO_20251106_114000.LOG",
+   "command": "PAZ514,,,,,,,",
+   "error": 10,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@J@@@@@@@"
+  },
+  {
+   "log": "EVO_20260120_115949.LOG",
+   "command": "MDT255,,,,93,93,93,93,93,93,93,93",
+   "error": 11,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@KKKKKKKK"
+  },
+  {
+   "log": "EVO_20260120_125926.LOG",
+   "command": "AGT255,724,210,0",
+   "error": 25,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "0"
+  },
+  {
+   "log": "EVO_20260120_132340.LOG",
+   "command": "MDT2,,,,0,5,0,0,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@I@@@@@@"
+  },
+  {
+   "log": "EVO_20260120_132340.LOG",
+   "command": "MDT4,,,,0,0,5,0,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@I@@@@@"
+  },
+  {
+   "log": "EVO_20260120_132340.LOG",
+   "command": "MDT32,,,,0,0,0,0,0,5,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@@@@I@@"
+  },
+  {
+   "log": "EVO_20260126_115642.LOG",
+   "command": "MDT32,,,,0,0,0,0,0,5,0,0",
+   "error": 11,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@@@@K@@"
+  },
+  {
+   "log": "EVO_20260126_115642.LOG",
+   "command": "MDT4,,,,0,0,5,0,0,0,0,0",
+   "error": 11,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@K@@@@@"
+  },
+  {
+   "log": "EVO_20260126_121803.LOG",
+   "command": "AST255,0",
+   "error": 27,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "1"
+  },
+  {
+   "log": "EVO_20260126_121803.LOG",
+   "command": "AST255,0",
+   "error": 27,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "7"
+  },
+  {
+   "log": "EVO_20260126_121803.LOG",
+   "command": "AST255,0",
+   "error": 27,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "3"
+  },
+  {
+   "log": "EVO_20260126_121803.LOG",
+   "command": "PAA11654,39,90,2100,2100,2100,2100,2100,2100,2100,2100",
+   "error": 10,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@JJJJJJJJ"
+  },
+  {
+   "log": "EVO_20260205_133842.LOG",
+   "command": "MET15,,,,110,110,110,110,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@IIII@@@@"
+  },
+  {
+   "log": "EVO_20260205_134547.LOG",
+   "command": "MET15,,,,110,110,110,110,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@IIIL@@@@"
+  },
+  {
+   "log": "EVO_20260205_134547.LOG",
+   "command": "MET1,,,,110,0,0,0,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@I@@@@@@@"
+  },
+  {
+   "log": "EVO_20260205_134547.LOG",
+   "command": "MET2,,,,0,110,0,0,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@I@@@@@@"
+  },
+  {
+   "log": "EVO_20260205_134547.LOG",
+   "command": "MET4,,,,0,0,110,0,0,0,0,0",
+   "error": 12,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@L@@@@@"
+  },
+  {
+   "log": "EVO_20260205_134547.LOG",
+   "command": "MET8,,,,0,0,0,110,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@@I@@@@"
+  },
+  {
+   "log": "EVO_20260205_135057.LOG",
+   "command": "MET15,,,,110,110,110,110,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@LILL@@@@"
+  },
+  {
+   "log": "EVO_20260205_140608.LOG",
+   "command": "MET15,,,,110,110,110,110,0,0,0,0",
+   "error": 10,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@JLJL@@@@"
+  },
+  {
+   "log": "EVO_20260205_140608.LOG",
+   "command": "PAZ991,991,991,991,,,,",
+   "error": 10,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@J@J@@@@@"
+  },
+  {
+   "log": "EVO_20260205_140608.LOG",
+   "command": "PAZ,2100,,,,,,",
+   "error": 10,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@JJJ@@@@"
+  },
+  {
+   "log": "EVO_20260205_141912.LOG",
+   "command": "MET15,,,,128,128,128,128,0,0,0,0",
+   "error": 12,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@LLLL@@@@"
+  },
+  {
+   "log": "EVO_20260205_141912.LOG",
+   "command": "MET1,,,,29,0,0,0,0,0,0,0",
+   "error": 12,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@L@@@@@@@"
+  },
+  {
+   "log": "EVO_20260205_143453.LOG",
+   "command": "MET15,,,,128,128,128,128,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@LLIL@@@@"
+  },
+  {
+   "log": "EVO_20260205_143453.LOG",
+   "command": "AGT15,724,210,0",
+   "error": 26,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "0"
+  },
+  {
+   "log": "EVO_20260408_140631.LOG",
+   "command": "MDT1,,,,0,0,0,0,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@I@@@@@@@"
+  },
+  {
+   "log": "EVO_20260408_140631.LOG",
+   "command": "MDT2,,,,0,0,0,0,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@I@@@@@@"
+  },
+  {
+   "log": "EVO_20260408_140631.LOG",
+   "command": "MDT4,,,,0,0,0,0,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@I@@@@@"
+  },
+  {
+   "log": "EVO_20260408_140631.LOG",
+   "command": "MDT8,,,,0,0,0,0,0,0,0,0",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@@I@@@@"
+  },
+  {
+   "log": "EVO_20260408_144142.LOG",
+   "command": "MET255,,,,83,83,83,83,83,83,83,83",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@IIIIIIII"
+  },
+  {
+   "log": "EVO_20260408_144142.LOG",
+   "command": "MDT255,,,,48,48,48,48,48,48,48,48",
+   "error": 9,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@IIIIIIII"
+  },
+  {
+   "log": "EVO_20260409_102536.LOG",
+   "command": "MET255,,,,83,83,83,83,83,83,83,83",
+   "error": 12,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@LLLLLLLL"
+  },
+  {
+   "log": "EVO_20260409_102536.LOG",
+   "command": "AGT255,768,210,0",
+   "error": 25,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "0"
+  },
+  {
+   "log": "EVO_20260409_111830.LOG",
+   "command": "MDT255,,,,49,49,49,49,49,49,49,49",
+   "error": 11,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@@@@@K@"
+  },
+  {
+   "log": "EVO_20260409_111830.LOG",
+   "command": "MDT255,,,,49,49,49,49,49,49,49,49",
+   "error": 11,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@K@@@KKK@"
+  },
+  {
+   "log": "EVO_20260409_111830.LOG",
+   "command": "MDT113,,,,49,0,0,0,49,49,49,0",
+   "error": 11,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@@@K@@@"
+  },
+  {
+   "log": "EVO_20260409_111830.LOG",
+   "command": "MDT16,,,,0,0,0,0,49,0,0,0",
+   "error": 11,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@@@K@@@"
+  },
+  {
+   "log": "EVO_20260409_111830.LOG",
+   "command": "MDT255,,,,49,49,49,49,49,49,49,49",
+   "error": 11,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@KK@K@K@"
+  },
+  {
+   "log": "EVO_20260409_120340.LOG",
+   "command": "MTR300,300,300,300,300,300,300,300",
+   "error": 10,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@@@@@@J"
+  },
+  {
+   "log": "EVO_20260409_121841.LOG",
+   "command": "MDT255,,,,55,55,55,55,55,55,55,55",
+   "error": 11,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@KKKKKKKK"
+  },
+  {
+   "log": "EVO_20260409_130338.LOG",
+   "command": "MDT255,,,,1,1,1,1,1,1,1,1",
+   "error": 11,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@K@@@KKK@"
+  },
+  {
+   "log": "EVO_20260409_131638.LOG",
+   "command": "PAA11565,1040,90,2100,2100,2100,2100,2100,2100,2100,2100",
+   "error": 10,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@JJJJJJJJ"
+  },
+  {
+   "log": "EVO_20260409_131638.LOG",
+   "command": "MDT255,,,,55,55,55,55,55,55,55,55",
+   "error": 11,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@K@@@@@@"
+  },
+  {
+   "log": "EVO_20260409_131638.LOG",
+   "command": "MDT2,,,,0,55,0,0,0,0,0,0",
+   "error": 11,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@K@@@@@@"
+  },
+  {
+   "log": "EVO_20260616_162835.LOG",
+   "command": "PAA2565,40,90,2100,2100,2100,2100,2100,2100,2100,2100",
+   "error": 10,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@JJJJJJJJ"
+  },
+  {
+   "log": "EVO_20260616_170413.LOG",
+   "command": "AGT255,768,210,0",
+   "error": 10,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@@@@J@@@@"
+  },
+  {
+   "log": "EVO_20260616_173259.LOG",
+   "command": "AST255,0",
+   "error": 27,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "8"
+  },
+  {
+   "log": "EVO_20260616_174054.LOG",
+   "command": "AGT247,768,210,0",
+   "error": 26,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "231"
+  },
+  {
+   "log": "EVO_20260618_160857.LOG",
+   "command": "AST255,0",
+   "error": 27,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "0"
+  },
+  {
+   "log": "EVO_20260618_160857.LOG",
+   "command": "AGT255,768,210,0",
+   "error": 26,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "247"
+  },
+  {
+   "log": "EVO_20260618_160857.LOG",
+   "command": "AST255,0",
+   "error": 27,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "128"
+  },
+  {
+   "log": "EVO_20261117_100823.LOG",
+   "command": "AST255,0",
+   "error": 27,
+   "error_text": "",
+   "follow_up": "RTS",
+   "follow_up_status": 0,
+   "follow_up_reply": "64"
+  },
+  {
+   "log": "EVO_20261117_100823.LOG",
+   "command": "PAZ2100,2100,2100,2100,2100,2100,2100,2100",
+   "error": 10,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "@@@JJJJJJJJ"
+  },
+  {
+   "log": "EVO_20261117_111156.LOG",
+   "command": "PAA-18,748,90,2100,2100,2100,2100,2100,2100,2100,2100",
+   "error": 10,
+   "error_text": "",
+   "follow_up": "REE",
+   "follow_up_status": 0,
+   "follow_up_reply": "J@@@@@@@@@@"
+  }
+ ]
+}

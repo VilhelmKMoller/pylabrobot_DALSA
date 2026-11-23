@@ -1,0 +1,35 @@
+{
+  "section": "4.5",
+  "title": "Report Commands (PMP Specific Functionality)",
+  "commands": [
+    {
+      "code": "RAP", "name": "Report Pressure LLD Parameter (Aspirate Part)", "page": 34, "syntax": "RAP", "params": [],
+      "response": ["Plunger speed, half steps/s", "Delay between plunger start and pLLD start, ms", "Relative aspiration distance, plunger steps", "Relative aspiration distance after pLLD, plunger steps"],
+      "return_codes": [0, 3, 5], "status": "hardware_option", "option": "pmp"
+    },
+    {
+      "code": "RDP", "name": "Report Pressure LLD Parameter (Dispense Part)", "page": 34, "syntax": "RDP", "params": [],
+      "response": [
+        "Retract distance of first dispense cycle, 1/10 mm/s (sic)",
+        "Plunger speed of first dispense cycle, half steps/s",
+        "Relative dispense distance of first dispense cycle, plunger steps",
+        "Delay between dispense cycle 1 and 2, ms",
+        "Retract distance of second dispense cycle, 1/10 mm/s (sic)",
+        "Plunger speed of second dispense cycle, half steps/s"
+      ],
+      "return_codes": [0, 3, 5], "status": "hardware_option", "option": "pmp"
+    },
+    {
+      "code": "RVP", "name": "Report PMP Pressure Value Before and After Detection", "page": 35, "syntax": "RVP Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 2, "default": 0, "description": "Selects the 'Before' or 'After' values."}],
+      "response": {"0": "Pressure before detection, 1/10 mbar, 8 channels", "1": "Pressure after detection, 1/10 mbar", "2": "Delta pressure limit, 1/10 mbar (set by SVP)"},
+      "return_codes": [0, 3, 5], "status": "hardware_option", "option": "pmp"
+    },
+    {
+      "code": "RPE", "name": "Report PMP Error Handling", "page": 35, "syntax": "RPE", "params": [],
+      "response": {"0": "PMP test not in use", "1": "PMP test active"},
+      "return_codes": [0, 3, 5], "status": "hardware_option", "option": "pmp",
+      "note": "Volatile. Must be set again after each LIHADCU start-up."
+    }
+  ]
+}

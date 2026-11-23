@@ -47,7 +47,10 @@ EVO_Z_TRAVEL = {"roma": 2464}
 # Minimum reference-X distance between neighbours (clearance included).
 # MCA-RoMa was 2440 at the minimum end and 2420 at the maximum end; the
 # larger (more conservative) value is used everywhere.
-EVO_SEPARATIONS: Tuple[int, ...] = (1320, 2440)
+# LiHa-MCA: the recorded 1320 was too small. On 2026-11-23 the LiHa (Y -348, moving right to
+# X 11347) bumped the MCA (X 12667, Y 1000) and stopped with X drive error 10 at X 10797: contact at
+# a separation of about 1870. 2200 = that contact plus ~33 mm clearance (operator-observed bump).
+EVO_SEPARATIONS: Tuple[int, ...] = (2200, 2440)
 
 
 def arms_from_separations(

@@ -1821,3 +1821,29 @@ def DiTi_50ul_CL_LiHa(name: str) -> TecanTipRack:
       name_prefix=name,
     ),
   )
+
+
+LIHA_1000UL_BOX_MODEL = "1000ul-diti-liha-box"
+
+
+def DiTi_1000ul_LiHa_box(name: str) -> TecanTipRack:
+  """The instrument's "1000ul-diti-liha-box": a plain "DiTi 1000ul LiHa" box (Tecan 10612554 /
+  30000630) as used by the LiHa on this EVO, with the corrections measured on the instrument.
+
+  Geometry is EVOware's "DiTi 1000ul LiHa" (``evoware_name``; Carrier.cfg). ``liha_offset`` is the
+  LiHa correction (X, Y, Z) in firmware units (1/10 mm; Z negative = lower), added by the EVO backend
+  to every LiHa position on this box. Measured 2026-11-23 with the box in the back site (EVOware
+  site 1) of "MCA96 Carrier 4 pos" at grid 46, watched by the operator:
+
+  - X +30 (+3 mm): the formula's X 11347 left the adapters off the tip column; 11377 is centred.
+  - Z -83 (-8.3 mm): DiTi fetch (AGT) start 783 -> 700. 783/773/753 gave error 25 (tips not
+    fetched), 710 left channel 2 marginal, 700 fetched all 8 every time. EVOware needed the same
+    start (700) at this site in 2024-2025. Never go to 685 or below: EVOware crashed there.
+
+  The correction belongs to this box in that site; re-measure if it moves to another carrier.
+  """
+  rack = DiTi_1000ul_LiHa(name)
+  rack.model = LIHA_1000UL_BOX_MODEL
+  rack.evoware_name = "DiTi 1000ul LiHa"  # type: ignore[attr-defined]
+  rack.liha_offset = (30, 0, -83)  # type: ignore[attr-defined]
+  return rack

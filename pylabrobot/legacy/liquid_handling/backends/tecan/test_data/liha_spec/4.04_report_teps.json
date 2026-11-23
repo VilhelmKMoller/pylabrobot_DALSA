@@ -1,0 +1,24 @@
+{
+  "section": "4.4",
+  "title": "Report Commands (TePS Specific Functionality)",
+  "commands": [
+    {
+      "code": "RAT", "name": "Report Adjustment Position of X and Y-Axis Direction", "page": 33, "syntax": "RAT Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 3, "default": 0, "description": "Selector of sensor and edge."}],
+      "response": {
+        "0": "Position entering sensor 1 beam, 1/10 mm, all tips",
+        "1": "Position leaving sensor 1 beam",
+        "2": "Position entering sensor 2 beam",
+        "3": "Position leaving sensor 2 beam"
+      },
+      "return_codes": [0, 3], "status": "excluded",
+      "exclude_reason": "TePS tip-position calibration. It only reports the results of AAT, which is excluded (operator decision 2026-11-21: no calibration commands)."
+    },
+    {
+      "code": "RAZ", "name": "Report Adjustment Position of Z-Axis Direction", "page": 34, "syntax": "RAZ", "params": [],
+      "response": "Z-axis height position in 1/10 mm (recorded by AAZ)",
+      "return_codes": [0, 3], "status": "excluded",
+      "exclude_reason": "TePS calibration. It only reports the results of AAZ, which is excluded."
+    }
+  ]
+}

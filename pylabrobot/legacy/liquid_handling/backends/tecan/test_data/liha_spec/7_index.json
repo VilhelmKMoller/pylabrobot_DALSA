@@ -1,0 +1,29 @@
+{
+  "section": "7",
+  "title": "Index of Commands",
+  "pages": [86, 87],
+  "note": "Transcribed from the page images (not the OCR text). Code -> page. 'Txx' is stored as 'T'.",
+  "commands": {
+    "AAT": 75, "AAZ": 74, "ACW": 54, "ADT": 64, "ADV": 73, "AGT": 63, "AHS": 73, "APS": 73, "APT": 63,
+    "ARE": 53, "ARX": 66, "ARY": 67, "ARZ": 67, "AST": 64, "ATP": 74, "AWE": 53, "AXT": 65,
+    "BMA": 66, "BMX": 65, "BMY": 66, "BMZ": 66, "CST": 66,
+    "MAA": 60, "MAX": 59, "MAY": 59, "MAZ": 60, "MCT": 63, "MDT": 62, "MET": 62, "MRX": 61, "MRY": 61, "MRZ": 61,
+    "MSD": 68, "MTR": 72, "NOC": 68, "NOK": 68,
+    "PAA": 56, "PAX": 56, "PAY": 57, "PAZ": 58, "PCX": 59, "PCY": 59, "PIA": 54, "PIB": 54, "PID": 72, "PIF": 55,
+    "PIX": 55, "PIY": 55, "PIZ": 55, "PPA": 71, "PPR": 71, "PRX": 58, "PRY": 58, "PRZ": 58, "PSY": 57, "PTG": 59,
+    "PVL": 72, "PXZ": 56,
+    "RAP": 34, "RAT": 33, "RAZ": 34, "RBK": 31, "RBL": 28, "RBT": 22, "RDA": 21, "RDD": 33, "RDE": 23, "RDF": 20,
+    "RDL": 28, "RDM": 29, "RDP": 34, "RDR": 28, "RDS": 32, "RDT": 24, "RDX": 30, "RDY": 30, "RDZ": 31, "RED": 21,
+    "REE": 30, "RFP": 27, "RFV": 20, "RGD": 21, "RGZ": 27, "RHS": 31, "RKA": 22, "RLA": 29, "RLR": 29, "RML": 27,
+    "RNT": 23, "RPE": 35, "RPP": 32, "RPX": 25, "RPY": 25, "RPZ": 26, "RSD": 23, "RSL": 23, "RSM": 30, "RSR": 28,
+    "RST": 24, "RSU": 22, "RTG": 26, "RTL": 27, "RTS": 30, "RTZ": 29, "RVP": 35, "RVZ": 26, "RXT": 32, "RYB": 24,
+    "RYR": 31, "RYS": 24, "RYV": 33,
+    "SAP": 51, "SAS": 48, "SAX": 48, "SAY": 48, "SBC": 36, "SBK": 50, "SBL": 42, "SCC": 37, "SDE": 41, "SDL": 43,
+    "SDM": 44, "SDP": 52, "SDR": 43, "SDT": 42, "SED": 36, "SEP": 50, "SFP": 40, "SFV": 35, "SFX": 45, "SFY": 46,
+    "SFZ": 46, "SGD": 36, "SHS": 50, "SHZ": 39, "SKA": 37, "SLA": 45, "SLR": 43, "SLX": 49, "SLY": 49, "SLZ": 49,
+    "SMC": 49, "SML": 42, "SOF": 37, "SOX": 46, "SOY": 46, "SOZ": 46, "SPE": 52, "SPP": 50, "SPS": 40, "SRS": 36,
+    "SRX": 38, "SRY": 38, "SRZ": 38, "SSD": 41, "SSL": 39, "SSM": 48, "SSP": 41, "SSR": 43, "SST": 41, "SSX": 39,
+    "SSY": 40, "SSZ": 40, "STL": 42, "STM": 45, "STP": 51, "STZ": 39, "SVP": 52, "SXT": 50, "SYB": 37, "SYS": 37,
+    "T": 54
+  }
+}

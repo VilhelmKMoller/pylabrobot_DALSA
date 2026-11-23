@@ -1,0 +1,299 @@
+{
+  "section": "4.7",
+  "title": "Set Commands (LIHA Specific Functionality)",
+  "commands": [
+    {
+      "code": "SYS", "name": "Set Minimum Y-Space Distance", "page": 37, "syntax": "SYS Space*",
+      "params": [{"name": "Space", "min": 90, "max": 380, "default": 90, "optional": true, "unit": "0.1 mm"}],
+      "return_codes": [0, 3], "status": "excluded",
+      "exclude_reason": "Mechanical machine configuration: redefines the Y-space minimum, needs Y re-initialization, is stored by AWE."
+    },
+    {
+      "code": "SYB", "name": "Set Y Backlash and Z Positioning Parameter", "page": 37, "syntax": "SYB BacklashY*, OverdriveZ*, PWMlimit*",
+      "params": [
+        {"name": "BacklashY", "min": 0, "max": 50, "default": 20, "optional": true, "unit": "0.1 mm"},
+        {"name": "OverdriveZ", "min": 0, "max": 10, "default": 4, "optional": true, "unit": "0.1 mm"},
+        {"name": "PWMlimit", "min": 1, "max": 16, "default": 16, "optional": true, "description": "PWM limit for the Y-space motor"}
+      ],
+      "return_codes": [0, 3], "status": "excluded",
+      "exclude_reason": "Machine tuning (backlash, overdrive, motor PWM), stored by AWE."
+    },
+    {
+      "code": "SRX", "name": "Set X-Axis Range", "page": 38, "syntax": "SRX Range*",
+      "params": [{"name": "Range", "min": 0, "max": 1000000, "default": 1000, "optional": true, "unit": "0.1 mm"}],
+      "return_codes": [0, 3], "status": "excluded", "exclude_reason": "Axis range calibration."
+    },
+    {
+      "code": "SRY", "name": "Set Y-Axis Range", "page": 38, "syntax": "SRY Range*",
+      "params": [{"name": "Range", "min": 0, "max": 1000000, "default": 1000, "optional": true, "unit": "0.1 mm"}],
+      "return_codes": [0, 3], "status": "excluded", "exclude_reason": "Axis range calibration."
+    },
+    {
+      "code": "SRZ", "name": "Set All Z-Axis Range", "page": 38, "syntax": "SRZ Zrange1*..Zrange8*",
+      "params": [{"name": "Zrange", "count": 8, "min": 0, "max": 1000000, "default": 2100, "optional": true, "unit": "0.1 mm"}],
+      "return_codes": [0, 3], "status": "excluded",
+      "exclude_reason": "Axis range calibration. Also resets the SHZ travel heights and needs re-initialization."
+    },
+    {
+      "code": "SHZ", "name": "Set Individual Z-Travel Height", "page": 39, "syntax": "SHZ Ztravel1*..Ztravel8*",
+      "params": [{"name": "Ztravel", "count": 8, "min": 0, "max": "z_range+20", "default": 2100, "optional": true, "unit": "0.1 mm"}],
+      "return_codes": [0, 3], "status": "implement",
+      "note": "Volatile. Only used for travel in the absolute field (PAA and MAA)."
+    },
+    {
+      "code": "STZ", "name": "Set Z-Axis Relative Tracking Distance", "page": 39, "syntax": "STZ Zrelative1*..Zrelative8*",
+      "params": [{"name": "Zrelative", "count": 8, "min": -2100, "max": 2100, "default": 0, "optional": true, "unit": "0.1 mm", "description": "Positive = up, negative = down. Used by MTR."}],
+      "return_codes": [0, 3], "status": "implement",
+      "note": "In 8+1 only parameters 1 and 2 are relevant."
+    },
+    {
+      "code": "SSL", "name": "Set Search Speed for Liquid Search Commands", "page": 39, "syntax": "SSL Speed1*..Speed8*",
+      "params": [{"name": "Speed", "count": 8, "min": 1, "max": 1500, "default": 400, "optional": true, "unit": "0.1 mm/s"}],
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "SSX", "name": "Set Slow Speed for X-Axis", "page": 39, "syntax": "SSX Speed*",
+      "params": [{"name": "Speed", "min": 1, "max": 4000, "default": 1000, "optional": true, "unit": "0.1 mm/s"}],
+      "return_codes": [0, 3], "status": "implement",
+      "note": "Used by MRX and MAX without the SlowSpeed selector."
+    },
+    {
+      "code": "SSY", "name": "Set Slow Speed for Y-Axis", "page": 40, "syntax": "SSY Speed*",
+      "params": [{"name": "Speed", "min": 1, "max": 4000, "default": 350, "optional": true, "unit": "0.1 mm/s"}],
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "SSZ", "name": "Set Individual Slow Speed for Z1..Z8", "page": 40, "syntax": "SSZ Speed1*..Speed8*",
+      "params": [{"name": "Speed", "count": 8, "min": 1, "max": 4000, "default": 400, "optional": true, "unit": "0.1 mm/s"}],
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "SPS", "name": "Set Pierce Parameter for Piercing Commands", "page": 40, "syntax": "SPS Speed*, PWMLimit*, CurLimit*",
+      "params": [
+        {"name": "Speed", "min": 1, "max": 1500, "default": 200, "optional": true, "unit": "0.1 mm/s"},
+        {"name": "PWMLimit", "min": 0, "max": 249, "default": 100, "optional": true, "unit": "counts"},
+        {"name": "CurLimit", "min": 0, "max": 3, "default": 0, "optional": true}
+      ],
+      "return_codes": [0, 3], "status": "hardware_option", "option": "piercing",
+      "note": "Volatile. Only meaningful with piercing tips (APT). Activated for all Z moves by SFP1."
+    },
+    {
+      "code": "SFP", "name": "Set Force Parameter for all Movements", "page": 40, "syntax": "SFP OnOff",
+      "params": [{"name": "OnOff", "min": 0, "max": 1, "default": 0, "description": "0 = no pierce force, 1 = SPS force active for all Z moves"}],
+      "return_codes": [0, 3], "status": "implement",
+      "note": "CAUTION in spec: higher force limits in normal use may destroy the Z motors. EVOware sends SFP in its logs; check the values there before high-level code uses SFP1. Reset to default by the next Z init."
+    },
+    {
+      "code": "SSP", "name": "Set Pick Parameter for DiTi Commands", "page": 41, "syntax": "SSP Speed*, PWMLimit*, CurLimit*",
+      "params": [
+        {"name": "Speed", "min": 1, "max": 1500, "default": 800, "optional": true, "unit": "0.1 mm/s"},
+        {"name": "PWMLimit", "min": 0, "max": 249, "default": 60, "optional": true, "unit": "counts"},
+        {"name": "CurLimit", "min": 0, "max": 3, "default": 0, "optional": true}
+      ],
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "SSD", "name": "Set Discard Parameter for DiTi Commands", "page": 41, "syntax": "SSD Speed*, PWMLimit*, CurLimit*",
+      "params": [
+        {"name": "Speed", "min": 1, "max": 1500, "default": 250, "optional": true, "unit": "0.1 mm/s"},
+        {"name": "PWMLimit", "min": 0, "max": 249, "default": 160, "optional": true, "unit": "counts"},
+        {"name": "CurLimit", "min": 0, "max": 3, "default": 0, "optional": true}
+      ],
+      "return_codes": [0, 3], "status": "implement",
+      "note": "The table of contents OCR reads it as 'SSO'."
+    },
+    {
+      "code": "SST", "name": "Set Lower DiTi Eject Logical Positions", "page": 41, "syntax": "SST Log1*, Log2*, DiscardDist*",
+      "params": [
+        {"name": "Log1", "min": 0, "max": "z1_range", "default": 1075, "optional": true, "unit": "0.1 mm"},
+        {"name": "Log2", "min": 0, "max": "z1_range", "default": 700, "optional": true, "unit": "0.1 mm"},
+        {"name": "DiscardDist", "min": 0, "max": 100, "default": 45, "optional": true, "unit": "0.1 mm"}
+      ],
+      "return_codes": [0, 3], "status": "excluded",
+      "exclude_reason": "Manual calibration of the lower DiTi eject (the alternative to CST), stored by AWE."
+    },
+    {
+      "code": "SDE", "name": "Switch Lower DiTi Eject On or Off", "page": 41, "syntax": "SDE OnOff",
+      "params": [{"name": "OnOff", "min": 0, "max": 1, "default": 0, "description": "0 = eject released (power off), 1 = eject active (power on)"}],
+      "return_codes": [0, 3, 5], "status": "hardware_option", "option": "lower_diti_eject",
+      "note": "The table of contents OCR reads it as 'SOE'."
+    },
+    {
+      "code": "SDT", "name": "Set DiTi Discard / Aspirate Parameter", "page": 42, "syntax": "SDT AspOnOff*, AspSpeed*, AspDelay*",
+      "params": [
+        {"name": "AspOnOff", "min": 0, "max": 1, "default": 0, "optional": true, "description": "Aspiration while DiTi discard off/on"},
+        {"name": "AspSpeed", "min": 5, "max": 6000, "default": 1000, "optional": true, "unit": "half steps/s"},
+        {"name": "AspDelay", "min": 0, "max": 5000, "default": 200, "optional": true, "unit": "ms", "description": "Delay between plunger start and Z-drive start"}
+      ],
+      "return_codes": [0, 3], "status": "implement",
+      "note": "Used with ADT and AST. EVOware sends SDT in its logs. The table of contents OCR reads it as 'SOT'."
+    },
+    {
+      "code": "STL", "name": "Set Individual Z-Start for Liquid Search Commands", "page": 42, "syntax": "STL Zstart1*..Zstart8*",
+      "params": [{"name": "Zstart", "count": 8, "min": 0, "max": "z_range|32767", "default": 2100, "optional": true, "unit": "0.1 mm"}],
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "SML", "name": "Set Individual Z-Max for Liquid Search Commands", "page": 42, "syntax": "SML Zmax1*..Zmax8*",
+      "params": [{"name": "Zmax", "count": 8, "min": 0, "max": "z_range|32767", "default": 1000, "optional": true, "unit": "0.1 mm"}],
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "SBL", "name": "Set Individual Submerge for Liquid Search Commands", "page": 42, "syntax": "SBL Submerge1*..Submerge8*",
+      "params": [{"name": "Submerge", "count": 8, "min": -1000, "max": "z_range|32767", "default": 0, "optional": true, "unit": "0.1 mm"}],
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "SDL", "name": "Set Individual Safe Detection Retract Distance for Liquid Search Cmd", "page": 43, "syntax": "SDL SafeDetRetractDist1*..SafeDetRetractDist8*",
+      "params": [{"name": "SafeDetRetractDist", "count": 8, "min": 0, "max": "z_range|32767", "default": 50, "optional": true, "unit": "0.1 mm"}],
+      "return_codes": [0, 3], "status": "implement",
+      "note": "Also sets the double-detection window (SafeDetRetractDist * 0.5). The table of contents OCR reads it as 'SOL'."
+    },
+    {
+      "code": "SDR", "name": "Set Individual Retract Distance for Clot Detection Commands", "page": 43, "syntax": "SDR RetractDist1*..RetractDist8*",
+      "params": [{"name": "RetractDist", "count": 8, "min": 0, "max": "z_range|32767", "default": 50, "optional": true, "unit": "0.1 mm"}],
+      "return_codes": [0, 3], "status": "implement",
+      "note": "The table of contents OCR reads it as 'SOR'."
+    },
+    {
+      "code": "SSR", "name": "Set Individual Retract Speed for Clot Detection Commands", "page": 43, "syntax": "SSR RetractSpeed1*..RetractSpeed8*",
+      "params": [{"name": "RetractSpeed", "count": 8, "min": 1, "max": 1500, "default": 200, "optional": true, "unit": "0.1 mm/s"}],
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "SLR", "name": "Set Individual Limit for Clot Detection Commands", "page": 43, "syntax": "SLR Limit1*..Limit8*",
+      "params": [{"name": "Limit", "count": 8, "min": 0, "max": "RetractDist", "default": 40, "optional": true, "unit": "0.1 mm"}],
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "SDM", "name": "Set Liquid Detection Mode", "page": 44, "syntax": "SDM DetProc*, Sense*",
+      "params": [
+        {"name": "DetProc", "allowed": [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16], "default": 1, "optional": true,
+         "description": "0 cLLD Common, 1 cLLD Common Safe, 2 cLLD Semi, 3 cLLD Semi Safe, 4 cLLD Full, 5 cLLD Full Safe, 6 cLLD Delay, 7 cLLD Trough1, 8 cLLD Trough2; 10..16 pLLD / mixed modes (PMP only)"},
+        {"name": "Sense", "min": 0, "max": 3, "default": 0, "optional": true, "description": "0 standard (not valid for pLLD), 1 high, 2 very high, 3 shorted to earth"}
+      ],
+      "return_codes": [0, 3, 5], "status": "implement",
+      "note": "DetProc 10..16 need the PMP option and are refused without it. MCT groups: 0,1,10,11,14 Common; 2,3,12,15 Semi; 4,5,7,8,13,16 Full; 6 Delay. The table of contents OCR reads it as 'SOM'."
+    },
+    {
+      "code": "SLA", "name": "Set Liquid Detection Acceleration", "page": 45, "syntax": "SLA Accel*",
+      "params": [{"name": "Accel", "min": 250, "max": 7500, "default": 2000, "optional": true, "unit": "0.1 mm/s2"}],
+      "return_codes": [0, 3], "status": "implement",
+      "note": "Volatile unless written with AWE (excluded)."
+    },
+    {
+      "code": "STM", "name": "Set Tip Monitoring", "page": 45, "syntax": "STM TipMon*",
+      "params": [{"name": "TipMon", "min": 0, "max": 1, "default": 1, "optional": true, "description": "0 inactive (only for the next detection), 1 active"}],
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "SFX", "name": "Set X-Move Parameters", "page": 45, "syntax": "SFX EndSpeed*, Accel*",
+      "params": [
+        {"name": "EndSpeed", "min": 50, "max": 11250, "default": 10000, "optional": true, "unit": "0.1 mm/s"},
+        {"name": "Accel", "min": 380, "max": 11250, "default": 1600, "optional": true, "unit": "0.1 mm/s2"}
+      ],
+      "return_codes": [0, 3], "status": "implement",
+      "note": "Volatile. CAUTION in spec: wrong usage can damage the instrument. Restore the values read with RPX1/RPX2 afterwards."
+    },
+    {
+      "code": "SFY", "name": "Set Y-Move Parameters", "page": 46, "syntax": "SFY EndSpeed*, Accel*",
+      "params": [
+        {"name": "EndSpeed", "min": 50, "max": 12500, "default": 3500, "optional": true, "unit": "0.1 mm/s"},
+        {"name": "Accel", "min": 430, "max": 12500, "default": 2400, "optional": true, "unit": "0.1 mm/s2"}
+      ],
+      "return_codes": [0, 3], "status": "implement", "note": "Volatile."
+    },
+    {
+      "code": "SFZ", "name": "Set Z-Move Parameters", "page": 46, "syntax": "SFZ EndSpeed*, Accel*",
+      "params": [
+        {"name": "EndSpeed", "min": 50, "max": 7500, "default": 4000, "optional": true, "unit": "0.1 mm/s"},
+        {"name": "Accel", "min": 250, "max": 7500, "default": 2000, "optional": true, "unit": "0.1 mm/s2"}
+      ],
+      "return_codes": [0, 3], "status": "implement", "note": "Volatile."
+    },
+    {
+      "code": "SOX", "name": "Set Initialization Offset for X-Axis", "page": 46, "syntax": "SOX InitOffset*, Displacement*",
+      "params": [
+        {"name": "InitOffset", "min": 10, "max": "x_range+x_init_offset|32767", "default": 150, "optional": true, "unit": "0.1 mm"},
+        {"name": "Displacement", "min": -250, "max": 32767, "default": 0, "optional": true, "unit": "0.1 mm"}
+      ],
+      "return_codes": [0, 3], "status": "excluded", "exclude_reason": "Axis offset calibration."
+    },
+    {
+      "code": "SOY", "name": "Set Initialization Offset for Y-Axis", "page": 46, "syntax": "SOY InitOffset*, Displacement*",
+      "params": [
+        {"name": "InitOffset", "min": 10, "max": "y_range+y_init_offset|32767", "default": 10, "optional": true, "unit": "0.1 mm"},
+        {"name": "Displacement", "min": -1000, "max": 0, "default": -887, "optional": true, "unit": "0.1 mm"}
+      ],
+      "return_codes": [0, 3], "status": "excluded", "exclude_reason": "Axis offset calibration."
+    },
+    {
+      "code": "SOZ", "name": "Set Initialization Offset for Z-Axis", "page": 46, "syntax": "SOZ InitOffset1*..InitOffset8*",
+      "params": [{"name": "InitOffset", "count": 8, "min": 10, "max": 1000, "default": 85, "optional": true, "unit": "0.1 mm"}],
+      "return_codes": [0, 3], "status": "excluded", "exclude_reason": "Axis offset calibration.",
+      "note": "Return code row is on page 47."
+    },
+    {
+      "code": "SAX", "name": "Set Scale Adjust Factor for X-Axis", "page": 48, "syntax": "SAX ScaleAdjust*",
+      "params": [{"name": "ScaleAdjust", "min": 9500, "max": 10500, "default": 10000, "optional": true}],
+      "return_codes": [0, 3], "status": "excluded", "exclude_reason": "Scale calibration."
+    },
+    {
+      "code": "SAY", "name": "Set Scale Adjust Factor for Y-Axis", "page": 48, "syntax": "SAY ScaleAdjust*",
+      "params": [{"name": "ScaleAdjust", "min": 9500, "max": 10500, "default": 10000, "optional": true}],
+      "return_codes": [0, 3], "status": "excluded", "exclude_reason": "Scale calibration."
+    },
+    {
+      "code": "SAS", "name": "Set Scale Adjust Factor for Y-Space Axis Only", "page": 48, "syntax": "SAS ScaleAdjust*",
+      "params": [{"name": "ScaleAdjust", "min": 9500, "max": 10500, "default": 10000, "optional": true}],
+      "return_codes": [0, 3], "status": "excluded", "exclude_reason": "Scale calibration."
+    },
+    {
+      "code": "SSM", "name": "Set X-Axis Smooth Move Mode", "page": 48, "syntax": "SSM Mode*",
+      "params": [{"name": "Mode", "min": 0, "max": 1, "default": 0, "optional": true, "description": "0 smooth move active, 1 SFX acceleration and speed in use"}],
+      "return_codes": [0, 3], "status": "implement",
+      "note": "Volatile unless written with AWE (excluded). EVOware sends SSM before X moves (7240 times in the logs)."
+    },
+    {
+      "code": "SLX", "name": "Set New X-Axis Scaling Factor and Motion Direction", "page": 49, "syntax": "SLX Xscale*",
+      "params": [{"name": "XScale", "min": -32768, "max": 32767, "default": -1250, "optional": true}],
+      "return_codes": [0, 3], "status": "excluded", "exclude_reason": "Scale factor and motor direction. Spec: never use in normal operation, could destroy the instrument."
+    },
+    {
+      "code": "SLY", "name": "Set New Y-Axis Scaling Factor and Motion Direction", "page": 49, "syntax": "SLY YScale*, YsScale*",
+      "params": [{"name": "YScale", "min": -32768, "max": 32767, "default": 1389, "optional": true}, {"name": "YsScale", "min": -32768, "max": 32767, "default": 1389, "optional": true}],
+      "return_codes": [0, 3], "status": "excluded", "exclude_reason": "Scale factor and motor direction. Spec: never use in normal operation."
+    },
+    {
+      "code": "SLZ", "name": "Set New Z-Axis Scaling Factor and Motion Direction", "page": 49, "syntax": "SLZ Zscale1*..Zscale8*",
+      "params": [{"name": "ZScale", "count": 8, "min": -32768, "max": 32767, "default": "+/-782", "optional": true}],
+      "return_codes": [0, 3], "status": "excluded", "exclude_reason": "Scale factor and motor direction. Spec: never use in normal operation."
+    },
+    {
+      "code": "SMC", "name": "Set all LIHA Axis Move Counter to Zero", "page": 49, "syntax": "SMC Key",
+      "params": [{"name": "Key", "description": "Secret"}],
+      "return_codes": [0, 3], "status": "excluded", "exclude_reason": "Service: clears the stored move counters."
+    },
+    {
+      "code": "SHS", "name": "Set Enhanced Speed Setting for EVO75", "page": 50, "syntax": "SHS Mode*",
+      "params": [{"name": "Mode", "min": 0, "max": 1, "default": 0, "optional": true}],
+      "return_codes": [0, 3, 29], "status": "excluded",
+      "exclude_reason": "Machine configuration for EVO75 only. Needs a power cycle, stored by AWE, changes SSM."
+    },
+    {
+      "code": "SXT", "name": "Set Discard Offset (8+1)", "page": 50, "syntax": "SXT Offset1*, Offset2*, Offset3*",
+      "params": [
+        {"name": "Offset1", "min": 0, "max": 60, "default": 30, "optional": true, "unit": "0.1 mm"},
+        {"name": "Offset2", "min": 90, "max": 130, "default": 110, "optional": true, "unit": "0.1 mm"},
+        {"name": "Offset3", "min": -20, "max": 40, "default": 10, "optional": true, "unit": "0.1 mm"}
+      ],
+      "return_codes": [0, 3], "status": "excluded", "exclude_reason": "8+1 discard offset calibration, stored by AWE."
+    },
+    {
+      "code": "SBK", "name": "Set Z Drive Brake On or Off (only 8 + 1 Configuration)", "page": 50, "syntax": "SBK OnOff",
+      "params": [{"name": "OnOff", "min": 0, "max": 1, "default": 0}],
+      "return_codes": [0, 3, 5], "status": "excluded",
+      "exclude_reason": "Service only: manual Z-brake release. Normal moves control the brake."
+    }
+  ]
+}

@@ -1,0 +1,227 @@
+{
+  "section": "4.2",
+  "title": "Report Commands (LIHA Specific Functionality)",
+  "commands": [
+    {
+      "code": "RSL", "name": "Report Second LIHA", "page": 23, "syntax": "RSL", "params": [],
+      "response": {"0": "Normal (first) LIHA", "1": "Second LIHA"},
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RNT", "name": "Report Number of Tips on Arm", "page": 23, "syntax": "RNT Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 1, "default": 0, "description": "Different format"}],
+      "response": {"0": "Binary format (TipSelect) 0..255", "1": "Decimal format 0..8"},
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RSD", "name": "Report Presence Lower DiTi Eject Option", "page": 23, "syntax": "RSD", "params": [],
+      "response": {"0": "No lower DiTi eject option installed", "1": "Lower DiTi eject option installed"},
+      "return_codes": [0, 3], "status": "implement",
+      "note": "Hardware option probe on 2026-11-24."
+    },
+    {
+      "code": "RDE", "name": "Report Status of Lower DiTi Eject Option", "page": 23, "syntax": "RDE", "params": [],
+      "response": {"0": "Inactive (power OFF)", "1": "Active (power ON)"},
+      "return_codes": [0, 3, 5], "status": "hardware_option", "option": "lower_diti_eject",
+      "note": "The table of contents OCR reads it as 'ROE'."
+    },
+    {
+      "code": "RST", "name": "Report Lower DiTi Eject Logical Positions", "page": 24, "syntax": "RST", "params": [],
+      "response": ["Upper eject position (e.g. 900)", "Lower eject position (e.g. 700)", "Discard distance (e.g. 45)"],
+      "return_codes": [0, 3], "status": "hardware_option", "option": "lower_diti_eject"
+    },
+    {
+      "code": "RDT", "name": "Report DiTi Discard / Aspirate Parameter", "page": 24, "syntax": "RDT", "params": [],
+      "response": ["Aspiration while DiTi discard 0 = off, 1 = on", "Plunger speed in half steps per second", "Delay between plunger start and Z-drive start in ms"],
+      "return_codes": [0, 3], "status": "implement",
+      "note": "The table of contents OCR reads it as 'ROT'."
+    },
+    {
+      "code": "RYS", "name": "Report Minimum Y Space Distance", "page": 24, "syntax": "RYS", "params": [],
+      "response": "Y-Space distance (set by SYS)",
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RYB", "name": "Report Y Backlash and Z Positioning Parameter", "page": 24, "syntax": "RYB", "params": [],
+      "response": ["Y backlash distance", "Z overdrive distance", "PWM limit to protect Y motors"],
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RPX", "name": "Report Current Parameter for X-Axis", "page": 25, "syntax": "RPX Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 11, "default": 0, "description": "Report selected X-axis parameter."}],
+      "response": {
+        "0": "Current position, 1/10 mm", "1": "Acceleration, 1/10 mm/s2", "2": "End speed, 1/10 mm/s",
+        "3": "Initialization speed, 1/10 mm/s", "4": "Initialization offset, 1/10 mm", "5": "Actual machine range, 1/10 mm",
+        "6": "Deviation in encoder increments", "7": "Displacement offset, 1/10 mm", "8": "Scale adjust factor",
+        "9": "Slow speed, 1/10 mm/s", "10": "Scale factor", "11": "Target position, 1/10 mm"
+      },
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RPY", "name": "Report Current Parameter for Y-Axis", "page": 25, "syntax": "RPY Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 11, "default": 0, "description": "Report selected Y-axis parameter (Y and Ys)."}],
+      "response": {
+        "0": "Current position, 1/10 mm", "1": "Acceleration, 1/10 mm/s2", "2": "End speed, 1/10 mm/s",
+        "3": "Initialization speed, 1/10 mm/s", "4": "Initialization offset, 1/10 mm", "5": "Actual machine range, 1/10 mm",
+        "6": "Deviation in encoder increments", "7": "Displacement offset, 1/10 mm", "8": "Scale adjust factor",
+        "9": "Slow speed, 1/10 mm/s", "10": "Axis scale factor", "11": "Target position, 1/10 mm"
+      },
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RPZ", "name": "Report Current Parameter for Z-Axis", "page": 26, "syntax": "RPZ Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 12, "default": 0, "description": "Report selected Z-axis parameter (all Z axes)."}],
+      "response": {
+        "0": "Current position, 1/10 mm", "1": "Acceleration, 1/10 mm/s2", "2": "Fast speed, 1/10 mm/s",
+        "3": "Initialization speed, 1/10 mm (sic)", "4": "Initialization offset, 1/10 mm", "5": "Actual machine range, 1/10 mm",
+        "6": "Deviation in encoder increments", "7": "Always 0", "8": "Scale adjust factor",
+        "9": "Slow speed, 1/10 mm/s", "10": "Axis scale factor", "11": "Target position, 1/10 mm", "12": "Travel position, 1/10 mm"
+      },
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RTG", "name": "Report Optional Tip Guard Status", "page": 26, "syntax": "RTG Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 2, "default": 0, "description": "Report selected tip guard parameter."}],
+      "response": {"0": "Installed: 0 = no, 1 = yes", "1": "Logical position: -1 = off, 0 = released, 1 = closed", "2": "Tip guard error status"},
+      "return_codes": [0, 3, 5], "status": "implement",
+      "note": "Selector 0 is the hardware option probe and is always safe. Selectors 1..2 need the tip guard."
+    },
+    {
+      "code": "RVZ", "name": "Report Z-Axis Values and Parameters", "page": 26, "syntax": "RVZ Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 4, "default": 0, "description": "Report selected Z-axis parameter."}],
+      "response": {
+        "0": "First capture position if Safe Proc is active (set by SDM)",
+        "1": "Capture position (second capture position if Safe Proc is active)",
+        "2": "Capture events",
+        "3": "Search speed (set by SSL)",
+        "4": "Slow speed (set by SSZ)"
+      },
+      "return_codes": [0, 3], "status": "implement",
+      "note": "For selectors 1 and 2 the capture register can hold an old value. Check the event register first."
+    },
+    {
+      "code": "RGZ", "name": "Report Global Z-Axis Values and Parameters", "page": 27, "syntax": "RGZ Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 2, "default": 0, "description": "Report selected Z-axis parameter."}],
+      "response": {
+        "0": "Pierce speed, PWMLimit, CurLimit (set by SPS)",
+        "1": "Pick speed, PWMLimit, CurLimit (set by SSP)",
+        "2": "Discard speed, PWMLimit, CurLimit (set by SSD)"
+      },
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RFP", "name": "Report Force Parameter for all Movements", "page": 27, "syntax": "RFP", "params": [],
+      "response": "0 = off, 1 = on (set by SFP)",
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RTL", "name": "Report Individual Z-Start for Liquid Search Commands", "page": 27, "syntax": "RTL", "params": [],
+      "response": "Z-start1..Z-start8 (used by MDT and MET when no Z-start is given)",
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RML", "name": "Report Individual Z-Max for Liquid Search Commands", "page": 27, "syntax": "RML", "params": [],
+      "response": "Z-max1..Z-max8 (used by MDT and MET when no Z-max is given)",
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RBL", "name": "Report Individual Submerge for Liquid Search Commands", "page": 28, "syntax": "RBL", "params": [],
+      "response": "Submerge1..Submerge8",
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RDL", "name": "Report Individual Safe Detection Retract Distance for Liquid Search", "page": 28, "syntax": "RDL", "params": [],
+      "response": "SaveDetRetractDist1..SaveDetRetractDist8",
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RDR", "name": "Report Individual Retract Distance for Clot Detection", "page": 28, "syntax": "RDR", "params": [],
+      "response": "RetractDist1..RetractDist8 (used by MCT)",
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RSR", "name": "Report Individual Retract Speed for Clot Detection", "page": 28, "syntax": "RSR", "params": [],
+      "response": "RetractSpeed1..RetractSpeed8 (used by MCT)",
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RLR", "name": "Report Individual Retract Limit for Clot Detection", "page": 29, "syntax": "RLR", "params": [],
+      "response": "Limit1..Limit8 (used by MCT)",
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RDM", "name": "Report Liquid Detection Mode", "page": 29, "syntax": "RDM", "params": [],
+      "response": ["Detection Proc", "Sensitivity"],
+      "return_codes": [0, 3], "status": "implement",
+      "note": "The table of contents OCR reads it as 'ROM'."
+    },
+    {
+      "code": "RLA", "name": "Report Liquid Detection Acceleration", "page": 29, "syntax": "RLA", "params": [],
+      "response": "Z acceleration while searching for liquid with MDT (set by SLA)",
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RTZ", "name": "Report Z-Axis Relative Tracking Values", "page": 29, "syntax": "RTZ", "params": [],
+      "response": "Relative tracking values of Z-axis1..Z-axis8 (used by MTR, set by STZ)",
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RTS", "name": "Report Tip Status DiTi", "page": 30, "syntax": "RTS", "params": [],
+      "response": "Mounted DiTis as a bit mask 0..255. Always 255 with steel tips. In 8+1 (App. Switch 5) only tip 1 is handled.",
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RSM", "name": "Report X-Axis Smooth Move Mode", "page": 30, "syntax": "RSM", "params": [],
+      "response": {"0": "Smooth move mode active (default)", "1": "Normal speed parameters (SFX)"},
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "REE", "name": "Report Extended Error Code or Axis Configuration String", "page": 30, "syntax": "REE Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 1, "default": 0, "description": "Reports selected diagnose function."}],
+      "response": {"0": "Extended error codes, one ASCII character per axis (error + 0x40)", "1": "Axis configuration string 'XYSZZZZZZZZ'"},
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RDX", "name": "Report X-Axis Diagnostic Functions", "page": 30, "syntax": "RDX Selector",
+      "params": [{"name": "Selector", "allowed": [0, 1, 2, 5], "default": 0, "description": "Reports selected diagnose function."}],
+      "response": {"0": "Move counter", "1": "Distance counter in metres", "2": "No load (crash) counter", "5": "Clearable move counter"},
+      "return_codes": [0, 3, 16], "status": "implement",
+      "note": "The table of contents OCR reads it as 'ROX'. Return code 16 = power fail circuit error (not in section 5)."
+    },
+    {
+      "code": "RDY", "name": "Report Y-Axis Diagnostic Functions", "page": 30, "syntax": "RDY Selector",
+      "params": [{"name": "Selector", "allowed": [0, 1, 2, 5], "default": 0, "description": "Reports selected diagnose function."}],
+      "response": {"0": "Move counter", "1": "Distance counter in metres", "2": "No load (crash) counter", "5": "Clearable move counter", "format": "'Y,Ys' with Y-spacing, 'Y' without"},
+      "return_codes": [0, 3], "status": "implement",
+      "note": "The table of contents OCR reads it as 'ROY'."
+    },
+    {
+      "code": "RDZ", "name": "Report Z-Axis Diagnostic Functions", "page": 31, "syntax": "RDZ Selector",
+      "params": [{"name": "Selector", "min": 0, "max": 5, "default": 0, "description": "Reports selected diagnose function."}],
+      "response": {"0": "Move counter", "1": "Distance counter in metres", "2": "No load (crash) counter", "3": "Number of fetched DiTis", "4": "Number of piercings", "5": "Clearable move counter"},
+      "return_codes": [0, 3], "status": "implement",
+      "note": "The table of contents OCR reads it as 'ROZ'."
+    },
+    {
+      "code": "RYR", "name": "Report Y Auto Range in Increments", "page": 31, "syntax": "RYR", "params": [],
+      "response": "Y and Ys range in encoder increments (evaluated by ARY)",
+      "return_codes": [0, 3], "status": "implement",
+      "note": "Read-only. The ARY and SAS commands it relates to are excluded."
+    },
+    {
+      "code": "RHS", "name": "Report Enhanced Speed Setting for EVO75", "page": 31, "syntax": "RHS", "params": [],
+      "response": "Enhanced speed setting switch (set by SHS)",
+      "return_codes": [0, 3], "status": "implement"
+    },
+    {
+      "code": "RBK", "name": "Report Z Drive Brake Status (only 8 + 1 Configuration)", "page": 31, "syntax": "RBK", "params": [],
+      "response": "0 = brake active (power off), 1 = brake released (power on)",
+      "return_codes": [0, 3, 5], "status": "hardware_option", "option": "8plus1"
+    },
+    {
+      "code": "RXT", "name": "Report Discard Offset (8+1)", "page": 32, "syntax": "RXT", "params": [],
+      "response": "Discard offset 1, 2 and 3 in 1/10 mm",
+      "return_codes": [0, 3], "status": "hardware_option", "option": "8plus1"
+    }
+  ]
+}

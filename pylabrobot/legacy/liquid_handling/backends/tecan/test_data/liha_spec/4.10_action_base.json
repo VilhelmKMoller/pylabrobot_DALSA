@@ -1,0 +1,33 @@
+{
+  "section": "4.10",
+  "title": "Action Commands (Base Functionality)",
+  "commands": [
+    {
+      "code": "AWE", "name": "Write System Parameters to FLASH-EPROM", "page": 53, "syntax": "AWE", "params": [],
+      "return_codes": [0, 3, 13], "status": "excluded",
+      "exclude_reason": "Writes flash: SFV, SGD, SED, SRX/Y/Z, SOX/Y/Z, SFX/Y/Z, SAX/Y, SSM, SYB, SYS, SST, SLA, SHS, SXT and the PTG 99..101 calibration values."
+    },
+    {
+      "code": "ARE", "name": "Read System Parameters to FLASH-EPROM", "page": 53, "syntax": "ARE", "params": [],
+      "return_codes": [0, 3, 13], "status": "excluded",
+      "exclude_reason": "Reloads the stored setup from flash and overwrites the running parameters. Service action."
+    },
+    {
+      "code": "ACW", "name": "Erase all Setup Data in the Flash", "page": 54, "syntax": "ACW Key",
+      "params": [{"name": "Key", "description": "Secret"}],
+      "return_codes": [0, 3], "status": "excluded",
+      "exclude_reason": "Erases all flash data. Spec: service only, can damage the instrument."
+    },
+    {
+      "code": "T", "name": "Pipeline to Slave Device (Txx)", "page": 54, "syntax": "T Layer Device Cmd",
+      "params": [
+        {"name": "Layer", "min": 0, "max": 7, "default": 0, "description": "Layer number coded in alpha characters (A, D, Q, O..)"},
+        {"name": "Device", "min": 0, "max": 15, "default": 0, "description": "Device number, hex 0..F"},
+        {"name": "Cmd", "description": "Command of the subdevice"}
+      ],
+      "return_codes": [0, 3], "status": "implement",
+      "subcommand_whitelist": ["RFV", "RPP", "RSD", "RIS"],
+      "note": "Raw pass-through to subdevices bypasses every check in this table, so only the read-only subdevice reports that EVOware sends are allowed (9509 of its 9520 T commands in the logs): T2xRFV0, T2xRPP7, T2xRPP10, T2xRSD1, T2xRIS for dilutors 0..7 and T30RFV15. Everything else is refused, including 'T30AFI1,38,12' (11 times in the logs, undocumented subdevice action)."
+    }
+  ]
+}

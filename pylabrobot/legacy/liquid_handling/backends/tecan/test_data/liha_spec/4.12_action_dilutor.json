@@ -1,0 +1,53 @@
+{
+  "section": "4.12",
+  "title": "Action Commands (Dilutor Specific Functionality)",
+  "commands": [
+    {
+      "code": "PPR", "name": "Move Plunger Relative", "page": 71, "syntax": "PPR PlungerRel1*..PlungerRel8*",
+      "params": [{"name": "PlungerRel", "count": 8, "min": -3150, "max": 3150, "default": 0, "optional": true, "unit": "full steps", "description": "Positive = aspirate (PPP), negative = dispense (PPD)"}],
+      "return_codes": [0, 3, 5, 28], "status": "implement",
+      "note": "The pump checks the range: an out-of-range channel returns 28 while the other channels still move. Read RDS after 28. Unit is FULL steps (SEP/SPP/STP speeds are in half steps)."
+    },
+    {
+      "code": "PPA", "name": "Move Plunger to Absolute Position", "page": 71, "syntax": "PPA PlungerAbs1*..PlungerAbs8*",
+      "params": [{"name": "PlungerAbs", "count": 8, "min": 0, "max": 3150, "default": "last", "optional": true, "unit": "full steps"}],
+      "return_codes": [0, 3, 5, 28], "status": "implement",
+      "note": "Same partial-execution behaviour as PPR on error 28."
+    },
+    {
+      "code": "MTR", "name": "Move Tracking Relative", "page": 72, "syntax": "MTR PlungerRel1*..PlungerRel8*",
+      "params": [{"name": "PlungerRel", "count": 8, "min": -3150, "max": 3150, "default": 0, "optional": true, "unit": "full steps"}],
+      "return_codes": [0, 3, 5, 10, 28], "status": "implement",
+      "note": "Z tracking distance from STZ, Z speed from SSZ. Without plunger parameters nothing moves. Invalid Z value: error 3, no move. Invalid plunger value: Z and the other plungers move, the invalid channel does not, error 28. In 8+1 only the first parameter counts."
+    },
+    {
+      "code": "PID", "name": "Initialize Plunger and Valve Drive (Reverse Polarity)", "page": 72, "syntax": "PID DilutorSelect",
+      "params": [{"name": "DilutorSelect", "min": 1, "max": 255, "default": 255}],
+      "return_codes": [0, 3, 5, 28], "status": "implement",
+      "note": "Resets all speeds and ramps to default afterwards. In 8+1 DilutorSelect is always 1. The table of contents OCR reads it as 'PIO'."
+    },
+    {
+      "code": "PVL", "name": "Position Valve Logical", "page": 72, "syntax": "PVL PositionValve1*..PositionValve8*",
+      "params": [{"name": "PositionValve", "count": 8, "min": 0, "max": 2, "default": "last", "optional": true, "description": "0 outlet (to tip), 1 inlet (system liquid), 2 bypass"}],
+      "return_codes": [0, 3, 5, 28], "status": "implement"
+    },
+    {
+      "code": "AHS", "name": "Start Hit Pinch Valve Solenoids", "page": 73, "syntax": "AHS DilutorSelect",
+      "params": [{"name": "DilutorSelect", "min": 1, "max": 255, "default": 255}],
+      "return_codes": [0, 3, 5, 28], "status": "hardware_option", "option": "pinch_valve",
+      "note": "Timing set by the XP2000 commands SBH, STH and SAH, which would need the excluded T pass-through."
+    },
+    {
+      "code": "APS", "name": "Start Piezo Pump for N Drops", "page": 73, "syntax": "APS DilutorSelect",
+      "params": [{"name": "DilutorSelect", "min": 1, "max": 255, "default": 255}],
+      "return_codes": [0, 3, 5, 28], "status": "hardware_option", "option": "piezo",
+      "note": "Pulse count and pump settings from XP2000 SPN, SPV, SPF and SPW."
+    },
+    {
+      "code": "ADV", "name": "Dispense Volume", "page": 73, "syntax": "ADV DilutorSelect",
+      "params": [{"name": "DilutorSelect", "min": 1, "max": 255, "default": 255}],
+      "return_codes": [0, 3, 5, 28], "status": "hardware_option", "option": "piezo",
+      "note": "Uses XP2000 SPV, SPF, SPW, SOV, SDV and SYV. Syringe size must be 10..1000 uL."
+    }
+  ]
+}

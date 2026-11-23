@@ -1,0 +1,41 @@
+{
+  "section": "4.9",
+  "title": "Set Commands (PMP Specific Functionality)",
+  "commands": [
+    {
+      "code": "SAP", "name": "Set Pressure LLD Parameter (Aspirate Part)", "page": 51, "syntax": "SAP AspSpeed*, AspDelay*, AspRelDist*, AspAfterLLD*",
+      "params": [
+        {"name": "AspSpeed", "min": 5, "max": 6000, "default": 300, "optional": true, "unit": "half steps/s", "note": "The PDF prints '5.6000'; read as 5..6000 like the other plunger speeds."},
+        {"name": "AspDelay", "min": 0, "max": 5000, "default": 350, "optional": true, "unit": "ms"},
+        {"name": "AspRelDist", "min": 0, "max": 3000, "default": 600, "optional": true, "unit": "plunger steps"},
+        {"name": "AspAfterLLD", "min": 0, "max": 60, "default": 0, "optional": true, "unit": "plunger steps"}
+      ],
+      "return_codes": [0, 3, 5], "status": "hardware_option", "option": "pmp",
+      "note": "Used for detection modes 10..16 (SDM)."
+    },
+    {
+      "code": "SDP", "name": "Set Pressure LLD Parameter (Dispense Part)", "page": 52, "syntax": "SDP Disp1Retract*, Disp1Speed*, Disp1RelDist*, DispDelay*, Disp2Retract*, Disp2Speed*",
+      "params": [
+        {"name": "Disp1Retract", "min": 0, "max": 1000, "default": 15, "optional": true, "unit": "0.1 mm above LLD"},
+        {"name": "Disp1Speed", "min": 5, "max": 6000, "default": 50, "optional": true, "unit": "half steps/s"},
+        {"name": "Disp1RelDist", "min": 0, "max": 3000, "default": 20, "optional": true, "unit": "plunger steps"},
+        {"name": "DispDelay", "min": 0, "max": 1000, "default": 200, "optional": true, "unit": "ms"},
+        {"name": "Disp2Retract", "min": 0, "max": 1000, "default": 40, "optional": true, "unit": "0.1 mm above LLD"},
+        {"name": "Disp2Speed", "min": 5, "max": 6000, "default": 1200, "optional": true, "unit": "half steps/s"}
+      ],
+      "return_codes": [0, 3, 5], "status": "hardware_option", "option": "pmp",
+      "note": "A dispense retract of 0 disables that cycle."
+    },
+    {
+      "code": "SVP", "name": "Set Delta Pressure Overrun Limit", "page": 52, "syntax": "SVP Limit*",
+      "params": [{"name": "Limit", "min": 0, "max": 255, "default": 0, "optional": true, "unit": "0.1 mbar", "description": "0 disables the pressure comparison"}],
+      "return_codes": [0, 3, 5], "status": "hardware_option", "option": "pmp"
+    },
+    {
+      "code": "SPE", "name": "Set PMP Error Handling", "page": 52, "syntax": "SPE OnOff",
+      "params": [{"name": "OnOff", "min": 0, "max": 1, "default": 0}],
+      "return_codes": [0, 3, 5], "status": "hardware_option", "option": "pmp",
+      "note": "Volatile. Off after every LIHADCU start-up."
+    }
+  ]
+}

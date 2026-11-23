@@ -1,0 +1,55 @@
+{
+  "section": "4.6",
+  "title": "Set Commands (Base Functionality)",
+  "commands": [
+    {
+      "code": "SFV", "name": "Set Serial Number", "page": 35, "syntax": "SFV Key, Number",
+      "params": [{"name": "Key", "description": "Secret"}, {"name": "Number", "description": "Up to 16 ASCII characters"}],
+      "return_codes": [0, 3], "status": "excluded",
+      "exclude_reason": "Writes flash (serial number)."
+    },
+    {
+      "code": "SGD", "name": "Set Global Data", "page": 36, "syntax": "SGD Selector, Value",
+      "params": [{"name": "Selector", "min": 1, "max": 100, "default": 0}, {"name": "Value", "min": -32768, "max": 32767, "default": 0}],
+      "return_codes": [0, 3], "status": "excluded",
+      "exclude_reason": "Stored in flash at power-down or by AWE. Internal use only (TECAN software).",
+      "note": "The table of contents OCR reads it as 'SGO'."
+    },
+    {
+      "code": "SED", "name": "Set FLASH-EPROM Data", "page": 36, "syntax": "SED Selector, Value",
+      "params": [{"name": "Selector", "min": 1, "max": "RED0"}, {"name": "Value", "min": -32768, "max": 32767, "default": 0}],
+      "return_codes": [0, 3], "status": "excluded",
+      "exclude_reason": "Writes the flash mirror (service only).",
+      "note": "The table of contents OCR reads it as 'SEO'."
+    },
+    {
+      "code": "SRS", "name": "Reset System (Whole Subsystem inclusive this DCU)", "page": 36, "syntax": "SRS", "params": [],
+      "return_codes": [0, 3], "status": "excluded",
+      "exclude_reason": "Resets every device on the CAN bus. Service action."
+    },
+    {
+      "code": "SBC", "name": "Send Broadcast to all Subdevices", "page": 36, "syntax": "SBC Message",
+      "params": [{"name": "Message", "min": 0, "max": 255, "default": 0, "description": "0 SW reset, 4 normal break, 5 emergency break, 32 keep alive on, 33 keep alive off."}],
+      "return_codes": [0, 3], "status": "excluded",
+      "exclude_reason": "CAN-bus service broadcasts (SW reset, keep alive)."
+    },
+    {
+      "code": "SCC", "name": "Send Broadcast to Device", "page": 37, "syntax": "SCC DeviceID, Message",
+      "params": [{"name": "DeviceID", "min": 0, "max": 127, "default": 0}, {"name": "Message", "min": 0, "max": 255, "default": 0}],
+      "return_codes": [0, 3], "status": "excluded",
+      "exclude_reason": "CAN-bus service broadcasts."
+    },
+    {
+      "code": "SKA", "name": "Set Keep Alive Function", "page": 37, "syntax": "SKA Mode",
+      "params": [{"name": "Mode", "min": 0, "max": 1, "default": 0}],
+      "return_codes": [0, 3], "status": "excluded",
+      "exclude_reason": "Internal use only. Changes the bus watchdog."
+    },
+    {
+      "code": "SOF", "name": "Firmware Download", "page": 37, "syntax": "SOF Firmware",
+      "params": [{"name": "Firmware", "description": "INTEL.HEX file format"}],
+      "return_codes": [0, 3], "status": "excluded",
+      "exclude_reason": "Firmware download."
+    }
+  ]
+}

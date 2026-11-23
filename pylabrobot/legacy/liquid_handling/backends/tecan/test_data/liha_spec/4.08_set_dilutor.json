@@ -1,0 +1,22 @@
+{
+  "section": "4.8",
+  "title": "Set Commands (Dilutor Specific Functionality)",
+  "commands": [
+    {
+      "code": "SEP", "name": "Set End Speed for Plungers", "page": 50, "syntax": "SEP Plunger1*..Plunger8*",
+      "params": [{"name": "Plunger", "count": 8, "min": 5, "max": 6000, "default": 1400, "optional": true, "unit": "half steps/s"}],
+      "return_codes": [0, 3, 28], "status": "implement",
+      "note": "In 8+1 the first parameter sets all 8 tips (8+1 uses one XP6000 instead of XP2000)."
+    },
+    {
+      "code": "SPP", "name": "Set Stop Speed for Plungers", "page": 50, "syntax": "SPP Plunger1*..Plunger8*",
+      "params": [{"name": "Plunger", "count": 8, "min": 50, "max": 2700, "default": 900, "optional": true, "unit": "half steps/s"}],
+      "return_codes": [0, 3, 28], "status": "implement"
+    },
+    {
+      "code": "STP", "name": "Set Start Speed for Plungers", "page": 51, "syntax": "STP Plunger1*..Plunger8*",
+      "params": [{"name": "Plunger", "count": 8, "min": 50, "max": 1000, "default": 900, "optional": true, "unit": "half steps/s"}],
+      "return_codes": [0, 3, 28], "status": "implement"
+    }
+  ]
+}

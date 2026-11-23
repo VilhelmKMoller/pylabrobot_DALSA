@@ -154,10 +154,12 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
     self.assertEqual(fake.violations, [])
 
   async def test_leftward_push(self):
-    fake = FakeEvo({"C5": 4000, "W1": 6000, "C1": 9000})
+    fake = FakeEvo({"C5": 3000, "W1": 6000, "C1": 9000})
     moves = await coordinator(fake).move_x("roma", 6500)
-    self.assertEqual([(m.arm, m.target) for m in moves],
-                     [("liha", 2740), ("mca", 4060), ("roma", 6500)])
+    # LiHa-MCA 2200 (raised from 1320 on 2026-11-23), MCA-RoMa 2440
+    self.assertEqual(
+      [(m.arm, m.target) for m in moves], [("liha", 1860), ("mca", 4060), ("roma", 6500)]
+    )
     self.assertEqual(fake.violations, [])
 
   async def test_clear_path_leaves_requested_arm(self):
