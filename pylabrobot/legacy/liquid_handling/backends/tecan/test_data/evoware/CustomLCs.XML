@@ -1,0 +1,589 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Subset of the instrument's EVOware CustomLCs.XML (2026-11-13) for tests: the class customized in
+     REFINES_fortynding line 19 (Mix), logged in EVO_20260409_111830 -->
+<LiquidClasses>
+  <LiquidClass name="&gt;&gt; Water Mix Gentle &lt;&lt;	11" liquidName="General liquid class for most pipetting devices and tip types" default="False" customized="True">
+    <Global>
+      <LLD mode="7" conductivity="1" speed="60" doubleDist="4" />
+      <Clot limit="4" speed="50" />
+      <LAC check="False" density="1" lowerDev="0" lowerDevUnit="1" upperDev="0" upperDevUnit="1" onError="0" />
+      <PMP viscosity="1" sensitivity="1" character="0" />
+    </Global>
+    <SubClasses>
+      <SubClass tipType="DiTi" all="False" min="1" max="7.51">
+        <Aspirate>
+          <Single speed="100" delay="200" pinchValve="False">
+            <STAG volume="20" speed="20" delay="0" />
+            <LAG volume="5" speed="20" delay="0" />
+            <TAG volume="10" speed="20" delay="0" />
+            <Excess volume="0" unit="0" destination="0" replaceCounter="1" />
+            <Conditioning volume="0" destination="1" />
+          </Single>
+          <Multi speed="100" delay="200" pinchValve="False">
+            <STAG volume="20" speed="20" delay="0" />
+            <LAG volume="0" speed="20" delay="0" />
+            <TAG volume="0" speed="20" delay="0" />
+            <Excess volume="30" unit="0" destination="0" replaceCounter="2" />
+            <Conditioning volume="30" destination="1" />
+          </Multi>
+          <LLD detect="True" position="0" offset="0" xOffset="0" yOffset="0" onError="0" />
+          <ExitSignal detect="False" onError="0" onPMPError="0" />
+          <Mix enabled="False" volume="100" cycles="1" position="0" offset="0" />
+          <Retract speed="5" position="2" offset="0" />
+        </Aspirate>
+        <Dispense>
+          <Single speed="200" breakoff="150" delay="200" tag="False" pinchValve="False" delayBefore="0" />
+          <Multi speed="200" breakoff="400" delay="200" tag="False" pinchValve="False" delayBefore="0" />
+          <LLD detect="False" position="6" offset="2" xOffset="0" yOffset="0" onError="0" />
+          <TipTouching direction="0" speed="10" delay="100" />
+          <Mix enabled="False" volume="100" cycles="1" position="0" offset="0" />
+          <Retract speed="40" position="2" offset="0" />
+          <ActiveTips piezoStartDelay="0" piezoStopDelay="0" dilutorStartDelay="0" dilutorStopDelay="0" />
+        </Dispense>
+        <Calibration>
+          <Single offset="0.45" factor="1" />
+          <Multi offset="0" factor="1" />
+          <Separate>
+            <Single>
+              <Tip1 separate="False" offset="0.45" factor="1" />
+              <Tip2 separate="False" offset="0.45" factor="1" />
+              <Tip3 separate="False" offset="0.45" factor="1" />
+              <Tip4 separate="False" offset="0.45" factor="1" />
+              <Tip5 separate="False" offset="0.45" factor="1" />
+              <Tip6 separate="False" offset="0.45" factor="1" />
+              <Tip7 separate="False" offset="0.45" factor="1" />
+              <Tip8 separate="False" offset="0.45" factor="1" />
+            </Single>
+            <Multi>
+              <Tip1 separate="False" offset="0" factor="1" />
+              <Tip2 separate="False" offset="0" factor="1" />
+              <Tip3 separate="False" offset="0" factor="1" />
+              <Tip4 separate="False" offset="0" factor="1" />
+              <Tip5 separate="False" offset="0" factor="1" />
+              <Tip6 separate="False" offset="0" factor="1" />
+              <Tip7 separate="False" offset="0" factor="1" />
+              <Tip8 separate="False" offset="0" factor="1" />
+            </Multi>
+          </Separate>
+        </Calibration>
+        <MPCalibration dropVolume="1" offsetV="0" factorV="1" offsetF="0" factorF="1" offsetPW="0" factorPW="1">
+          <Separate>
+            <Tip1 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip2 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip3 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip4 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip5 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip6 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip7 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip8 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+          </Separate>
+        </MPCalibration>
+        <MuPipPlunger>
+          <Aspirate>
+            <Single accel="75" decel="150" voldepspeed="False" />
+            <Multi accel="75" decel="150" voldepspeed="False" />
+          </Aspirate>
+          <Dispense>
+            <Single accel="150" decel="600" voldepspeed="False" />
+            <Multi accel="150" decel="600" voldepspeed="False" />
+          </Dispense>
+          <Impulse custom="False" voltage="0" frequency="0" />
+          <Synch plungerStart="0" plungerDuration="100" piezo1Start="0" piezo1Duration="0" piezo2Start="0" piezo2Duration="0" pinchPulses="0" />
+          <Backlash TAG="1" Sample="1" TagVolume="2" SampleVolume="2" />
+        </MuPipPlunger>
+      </SubClass>
+      <SubClass tipType="DiTi" all="False" min="15.01" max="200.01">
+        <Aspirate>
+          <Single speed="100" delay="200" pinchValve="False">
+            <STAG volume="20" speed="20" delay="0" />
+            <LAG volume="5" speed="20" delay="0" />
+            <TAG volume="10" speed="20" delay="0" />
+            <Excess volume="0" unit="0" destination="0" replaceCounter="1" />
+            <Conditioning volume="0" destination="1" />
+          </Single>
+          <Multi speed="100" delay="200" pinchValve="False">
+            <STAG volume="20" speed="20" delay="0" />
+            <LAG volume="0" speed="20" delay="0" />
+            <TAG volume="0" speed="20" delay="0" />
+            <Excess volume="30" unit="0" destination="0" replaceCounter="2" />
+            <Conditioning volume="30" destination="1" />
+          </Multi>
+          <LLD detect="True" position="0" offset="0" xOffset="0" yOffset="0" onError="0" />
+          <ExitSignal detect="False" onError="0" onPMPError="0" />
+          <Mix enabled="False" volume="100" cycles="1" position="0" offset="0" />
+          <Retract speed="5" position="2" offset="0" />
+        </Aspirate>
+        <Dispense>
+          <Single speed="200" breakoff="150" delay="200" tag="False" pinchValve="False" delayBefore="0" />
+          <Multi speed="200" breakoff="400" delay="200" tag="False" pinchValve="False" delayBefore="0" />
+          <LLD detect="False" position="6" offset="2" xOffset="0" yOffset="0" onError="0" />
+          <TipTouching direction="0" speed="10" delay="100" />
+          <Mix enabled="False" volume="100" cycles="1" position="0" offset="0" />
+          <Retract speed="40" position="2" offset="0" />
+          <ActiveTips piezoStartDelay="0" piezoStopDelay="0" dilutorStartDelay="0" dilutorStopDelay="0" />
+        </Dispense>
+        <Calibration>
+          <Single offset="0.45" factor="1" />
+          <Multi offset="0" factor="1" />
+          <Separate>
+            <Single>
+              <Tip1 separate="False" offset="0.45" factor="1" />
+              <Tip2 separate="False" offset="0.45" factor="1" />
+              <Tip3 separate="False" offset="0.45" factor="1" />
+              <Tip4 separate="False" offset="0.45" factor="1" />
+              <Tip5 separate="False" offset="0.45" factor="1" />
+              <Tip6 separate="False" offset="0.45" factor="1" />
+              <Tip7 separate="False" offset="0.45" factor="1" />
+              <Tip8 separate="False" offset="0.45" factor="1" />
+            </Single>
+            <Multi>
+              <Tip1 separate="False" offset="0" factor="1" />
+              <Tip2 separate="False" offset="0" factor="1" />
+              <Tip3 separate="False" offset="0" factor="1" />
+              <Tip4 separate="False" offset="0" factor="1" />
+              <Tip5 separate="False" offset="0" factor="1" />
+              <Tip6 separate="False" offset="0" factor="1" />
+              <Tip7 separate="False" offset="0" factor="1" />
+              <Tip8 separate="False" offset="0" factor="1" />
+            </Multi>
+          </Separate>
+        </Calibration>
+        <MPCalibration dropVolume="1" offsetV="0" factorV="1" offsetF="0" factorF="1" offsetPW="0" factorPW="1">
+          <Separate>
+            <Tip1 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip2 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip3 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip4 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip5 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip6 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip7 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip8 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+          </Separate>
+        </MPCalibration>
+        <MuPipPlunger>
+          <Aspirate>
+            <Single accel="75" decel="150" voldepspeed="False" />
+            <Multi accel="75" decel="150" voldepspeed="False" />
+          </Aspirate>
+          <Dispense>
+            <Single accel="150" decel="600" voldepspeed="False" />
+            <Multi accel="150" decel="600" voldepspeed="False" />
+          </Dispense>
+          <Impulse custom="False" voltage="0" frequency="0" />
+          <Synch plungerStart="0" plungerDuration="100" piezo1Start="0" piezo1Duration="0" piezo2Start="0" piezo2Duration="0" pinchPulses="0" />
+          <Backlash TAG="1" Sample="1" TagVolume="2" SampleVolume="2" />
+        </MuPipPlunger>
+      </SubClass>
+      <SubClass tipType="DiTi" all="False" min="200.01" max="1000.01">
+        <Aspirate>
+          <Single speed="100" delay="200" pinchValve="False">
+            <STAG volume="20" speed="20" delay="0" />
+            <LAG volume="5" speed="20" delay="0" />
+            <TAG volume="10" speed="20" delay="0" />
+            <Excess volume="0" unit="0" destination="0" replaceCounter="1" />
+            <Conditioning volume="0" destination="1" />
+          </Single>
+          <Multi speed="100" delay="200" pinchValve="False">
+            <STAG volume="20" speed="20" delay="0" />
+            <LAG volume="0" speed="20" delay="0" />
+            <TAG volume="0" speed="20" delay="0" />
+            <Excess volume="30" unit="0" destination="0" replaceCounter="2" />
+            <Conditioning volume="30" destination="1" />
+          </Multi>
+          <LLD detect="True" position="0" offset="0" xOffset="0" yOffset="0" onError="0" />
+          <ExitSignal detect="False" onError="0" onPMPError="0" />
+          <Mix enabled="False" volume="100" cycles="1" position="0" offset="0" />
+          <Retract speed="5" position="2" offset="0" />
+        </Aspirate>
+        <Dispense>
+          <Single speed="200" breakoff="150" delay="200" tag="False" pinchValve="False" delayBefore="0" />
+          <Multi speed="200" breakoff="400" delay="200" tag="False" pinchValve="False" delayBefore="0" />
+          <LLD detect="False" position="6" offset="2" xOffset="0" yOffset="0" onError="0" />
+          <TipTouching direction="0" speed="10" delay="100" />
+          <Mix enabled="False" volume="100" cycles="1" position="0" offset="0" />
+          <Retract speed="40" position="2" offset="0" />
+          <ActiveTips piezoStartDelay="0" piezoStopDelay="0" dilutorStartDelay="0" dilutorStopDelay="0" />
+        </Dispense>
+        <Calibration>
+          <Single offset="0.45" factor="1" />
+          <Multi offset="0" factor="1" />
+          <Separate>
+            <Single>
+              <Tip1 separate="False" offset="0.45" factor="1" />
+              <Tip2 separate="False" offset="0.45" factor="1" />
+              <Tip3 separate="False" offset="0.45" factor="1" />
+              <Tip4 separate="False" offset="0.45" factor="1" />
+              <Tip5 separate="False" offset="0.45" factor="1" />
+              <Tip6 separate="False" offset="0.45" factor="1" />
+              <Tip7 separate="False" offset="0.45" factor="1" />
+              <Tip8 separate="False" offset="0.45" factor="1" />
+            </Single>
+            <Multi>
+              <Tip1 separate="False" offset="0" factor="1" />
+              <Tip2 separate="False" offset="0" factor="1" />
+              <Tip3 separate="False" offset="0" factor="1" />
+              <Tip4 separate="False" offset="0" factor="1" />
+              <Tip5 separate="False" offset="0" factor="1" />
+              <Tip6 separate="False" offset="0" factor="1" />
+              <Tip7 separate="False" offset="0" factor="1" />
+              <Tip8 separate="False" offset="0" factor="1" />
+            </Multi>
+          </Separate>
+        </Calibration>
+        <MPCalibration dropVolume="1" offsetV="0" factorV="1" offsetF="0" factorF="1" offsetPW="0" factorPW="1">
+          <Separate>
+            <Tip1 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip2 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip3 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip4 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip5 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip6 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip7 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip8 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+          </Separate>
+        </MPCalibration>
+        <MuPipPlunger>
+          <Aspirate>
+            <Single accel="75" decel="150" voldepspeed="False" />
+            <Multi accel="75" decel="150" voldepspeed="False" />
+          </Aspirate>
+          <Dispense>
+            <Single accel="150" decel="600" voldepspeed="False" />
+            <Multi accel="150" decel="600" voldepspeed="False" />
+          </Dispense>
+          <Impulse custom="False" voltage="0" frequency="0" />
+          <Synch plungerStart="0" plungerDuration="100" piezo1Start="0" piezo1Duration="0" piezo2Start="0" piezo2Duration="0" pinchPulses="0" />
+          <Backlash TAG="1" Sample="1" TagVolume="2" SampleVolume="2" />
+        </MuPipPlunger>
+      </SubClass>
+      <SubClass tipType="MCADiTi" all="False" min="1" max="7.51">
+        <Aspirate>
+          <Single speed="100" delay="200" pinchValve="False">
+            <STAG volume="20" speed="20" delay="0" />
+            <LAG volume="5" speed="20" delay="0" />
+            <TAG volume="10" speed="20" delay="0" />
+            <Excess volume="0" unit="0" destination="0" replaceCounter="1" />
+            <Conditioning volume="0" destination="1" />
+          </Single>
+          <Multi speed="100" delay="200" pinchValve="False">
+            <STAG volume="20" speed="20" delay="0" />
+            <LAG volume="0" speed="20" delay="0" />
+            <TAG volume="0" speed="20" delay="0" />
+            <Excess volume="30" unit="0" destination="0" replaceCounter="2" />
+            <Conditioning volume="30" destination="1" />
+          </Multi>
+          <LLD detect="True" position="0" offset="0" xOffset="0" yOffset="0" onError="0" />
+          <ExitSignal detect="False" onError="0" onPMPError="0" />
+          <Mix enabled="False" volume="100" cycles="1" position="0" offset="0" />
+          <Retract speed="5" position="2" offset="0" />
+        </Aspirate>
+        <Dispense>
+          <Single speed="200" breakoff="150" delay="200" tag="False" pinchValve="False" delayBefore="0" />
+          <Multi speed="200" breakoff="400" delay="200" tag="False" pinchValve="False" delayBefore="0" />
+          <LLD detect="False" position="6" offset="2" xOffset="0" yOffset="0" onError="0" />
+          <TipTouching direction="0" speed="10" delay="100" />
+          <Mix enabled="False" volume="100" cycles="1" position="0" offset="0" />
+          <Retract speed="40" position="2" offset="0" />
+          <ActiveTips piezoStartDelay="0" piezoStopDelay="0" dilutorStartDelay="0" dilutorStopDelay="0" />
+        </Dispense>
+        <Calibration>
+          <Single offset="0.45" factor="1" />
+          <Multi offset="0" factor="1" />
+          <Separate>
+            <Single>
+              <Tip1 separate="False" offset="0" factor="1" />
+              <Tip2 separate="False" offset="0" factor="1" />
+              <Tip3 separate="False" offset="0" factor="1" />
+              <Tip4 separate="False" offset="0" factor="1" />
+              <Tip5 separate="False" offset="0" factor="1" />
+              <Tip6 separate="False" offset="0" factor="1" />
+              <Tip7 separate="False" offset="0" factor="1" />
+              <Tip8 separate="False" offset="0" factor="1" />
+            </Single>
+            <Multi>
+              <Tip1 separate="False" offset="0" factor="1" />
+              <Tip2 separate="False" offset="0" factor="1" />
+              <Tip3 separate="False" offset="0" factor="1" />
+              <Tip4 separate="False" offset="0" factor="1" />
+              <Tip5 separate="False" offset="0" factor="1" />
+              <Tip6 separate="False" offset="0" factor="1" />
+              <Tip7 separate="False" offset="0" factor="1" />
+              <Tip8 separate="False" offset="0" factor="1" />
+            </Multi>
+          </Separate>
+        </Calibration>
+        <MPCalibration dropVolume="1" offsetV="0" factorV="1" offsetF="0" factorF="1" offsetPW="0" factorPW="1">
+          <Separate>
+            <Tip1 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip2 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip3 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip4 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip5 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip6 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip7 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip8 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+          </Separate>
+        </MPCalibration>
+        <MuPipPlunger>
+          <Aspirate>
+            <Single accel="5760" decel="16000" voldepspeed="False" />
+            <Multi accel="5760" decel="16000" voldepspeed="False" />
+          </Aspirate>
+          <Dispense>
+            <Single accel="5760" decel="16000" voldepspeed="False" />
+            <Multi accel="5760" decel="16000" voldepspeed="False" />
+          </Dispense>
+          <Impulse custom="False" voltage="0" frequency="0" />
+          <Synch plungerStart="0" plungerDuration="100" piezo1Start="0" piezo1Duration="0" piezo2Start="0" piezo2Duration="0" pinchPulses="0" />
+          <Backlash TAG="1" Sample="1" TagVolume="2" SampleVolume="2" />
+        </MuPipPlunger>
+      </SubClass>
+      <SubClass tipType="MCADiTi" all="False" min="7.51" max="15.01">
+        <Aspirate>
+          <Single speed="100" delay="200" pinchValve="False">
+            <STAG volume="20" speed="20" delay="0" />
+            <LAG volume="5" speed="20" delay="0" />
+            <TAG volume="10" speed="20" delay="0" />
+            <Excess volume="0" unit="0" destination="0" replaceCounter="1" />
+            <Conditioning volume="0" destination="1" />
+          </Single>
+          <Multi speed="100" delay="200" pinchValve="False">
+            <STAG volume="20" speed="20" delay="0" />
+            <LAG volume="0" speed="20" delay="0" />
+            <TAG volume="0" speed="20" delay="0" />
+            <Excess volume="30" unit="0" destination="0" replaceCounter="2" />
+            <Conditioning volume="30" destination="1" />
+          </Multi>
+          <LLD detect="True" position="0" offset="0" xOffset="0" yOffset="0" onError="0" />
+          <ExitSignal detect="False" onError="0" onPMPError="0" />
+          <Mix enabled="False" volume="100" cycles="1" position="0" offset="0" />
+          <Retract speed="5" position="2" offset="0" />
+        </Aspirate>
+        <Dispense>
+          <Single speed="200" breakoff="150" delay="200" tag="False" pinchValve="False" delayBefore="0" />
+          <Multi speed="200" breakoff="400" delay="200" tag="False" pinchValve="False" delayBefore="0" />
+          <LLD detect="False" position="6" offset="2" xOffset="0" yOffset="0" onError="0" />
+          <TipTouching direction="0" speed="10" delay="100" />
+          <Mix enabled="False" volume="100" cycles="1" position="0" offset="0" />
+          <Retract speed="40" position="2" offset="0" />
+          <ActiveTips piezoStartDelay="0" piezoStopDelay="0" dilutorStartDelay="0" dilutorStopDelay="0" />
+        </Dispense>
+        <Calibration>
+          <Single offset="0.45" factor="1" />
+          <Multi offset="0" factor="1" />
+          <Separate>
+            <Single>
+              <Tip1 separate="False" offset="0" factor="1" />
+              <Tip2 separate="False" offset="0" factor="1" />
+              <Tip3 separate="False" offset="0" factor="1" />
+              <Tip4 separate="False" offset="0" factor="1" />
+              <Tip5 separate="False" offset="0" factor="1" />
+              <Tip6 separate="False" offset="0" factor="1" />
+              <Tip7 separate="False" offset="0" factor="1" />
+              <Tip8 separate="False" offset="0" factor="1" />
+            </Single>
+            <Multi>
+              <Tip1 separate="False" offset="0" factor="1" />
+              <Tip2 separate="False" offset="0" factor="1" />
+              <Tip3 separate="False" offset="0" factor="1" />
+              <Tip4 separate="False" offset="0" factor="1" />
+              <Tip5 separate="False" offset="0" factor="1" />
+              <Tip6 separate="False" offset="0" factor="1" />
+              <Tip7 separate="False" offset="0" factor="1" />
+              <Tip8 separate="False" offset="0" factor="1" />
+            </Multi>
+          </Separate>
+        </Calibration>
+        <MPCalibration dropVolume="1" offsetV="0" factorV="1" offsetF="0" factorF="1" offsetPW="0" factorPW="1">
+          <Separate>
+            <Tip1 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip2 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip3 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip4 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip5 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip6 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip7 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip8 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+          </Separate>
+        </MPCalibration>
+        <MuPipPlunger>
+          <Aspirate>
+            <Single accel="5760" decel="16000" voldepspeed="False" />
+            <Multi accel="5760" decel="16000" voldepspeed="False" />
+          </Aspirate>
+          <Dispense>
+            <Single accel="5760" decel="16000" voldepspeed="False" />
+            <Multi accel="5760" decel="16000" voldepspeed="False" />
+          </Dispense>
+          <Impulse custom="False" voltage="0" frequency="0" />
+          <Synch plungerStart="0" plungerDuration="100" piezo1Start="0" piezo1Duration="0" piezo2Start="0" piezo2Duration="0" pinchPulses="0" />
+          <Backlash TAG="1" Sample="1" TagVolume="2" SampleVolume="2" />
+        </MuPipPlunger>
+      </SubClass>
+      <SubClass tipType="MCADiTi" all="False" min="15.01" max="20.01">
+        <Aspirate>
+          <Single speed="100" delay="200" pinchValve="False">
+            <STAG volume="20" speed="20" delay="0" />
+            <LAG volume="5" speed="20" delay="0" />
+            <TAG volume="10" speed="20" delay="0" />
+            <Excess volume="0" unit="0" destination="0" replaceCounter="1" />
+            <Conditioning volume="0" destination="1" />
+          </Single>
+          <Multi speed="100" delay="200" pinchValve="False">
+            <STAG volume="20" speed="20" delay="0" />
+            <LAG volume="0" speed="20" delay="0" />
+            <TAG volume="0" speed="20" delay="0" />
+            <Excess volume="30" unit="0" destination="0" replaceCounter="2" />
+            <Conditioning volume="30" destination="1" />
+          </Multi>
+          <LLD detect="True" position="0" offset="0" xOffset="0" yOffset="0" onError="0" />
+          <ExitSignal detect="False" onError="0" onPMPError="0" />
+          <Mix enabled="False" volume="100" cycles="1" position="0" offset="0" />
+          <Retract speed="5" position="2" offset="0" />
+        </Aspirate>
+        <Dispense>
+          <Single speed="200" breakoff="150" delay="200" tag="False" pinchValve="False" delayBefore="0" />
+          <Multi speed="200" breakoff="400" delay="200" tag="False" pinchValve="False" delayBefore="0" />
+          <LLD detect="False" position="6" offset="2" xOffset="0" yOffset="0" onError="0" />
+          <TipTouching direction="0" speed="10" delay="100" />
+          <Mix enabled="False" volume="100" cycles="1" position="0" offset="0" />
+          <Retract speed="40" position="2" offset="0" />
+          <ActiveTips piezoStartDelay="0" piezoStopDelay="0" dilutorStartDelay="0" dilutorStopDelay="0" />
+        </Dispense>
+        <Calibration>
+          <Single offset="-2.7" factor="1.21" />
+          <Multi offset="0" factor="1" />
+          <Separate>
+            <Single>
+              <Tip1 separate="False" offset="0" factor="1" />
+              <Tip2 separate="False" offset="0" factor="1" />
+              <Tip3 separate="False" offset="0" factor="1" />
+              <Tip4 separate="False" offset="0" factor="1" />
+              <Tip5 separate="False" offset="0" factor="1" />
+              <Tip6 separate="False" offset="0" factor="1" />
+              <Tip7 separate="False" offset="0" factor="1" />
+              <Tip8 separate="False" offset="0" factor="1" />
+            </Single>
+            <Multi>
+              <Tip1 separate="False" offset="0" factor="1" />
+              <Tip2 separate="False" offset="0" factor="1" />
+              <Tip3 separate="False" offset="0" factor="1" />
+              <Tip4 separate="False" offset="0" factor="1" />
+              <Tip5 separate="False" offset="0" factor="1" />
+              <Tip6 separate="False" offset="0" factor="1" />
+              <Tip7 separate="False" offset="0" factor="1" />
+              <Tip8 separate="False" offset="0" factor="1" />
+            </Multi>
+          </Separate>
+        </Calibration>
+        <MPCalibration dropVolume="1" offsetV="0" factorV="1" offsetF="0" factorF="1" offsetPW="0" factorPW="1">
+          <Separate>
+            <Tip1 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip2 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip3 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip4 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip5 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip6 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip7 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip8 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+          </Separate>
+        </MPCalibration>
+        <MuPipPlunger>
+          <Aspirate>
+            <Single accel="5760" decel="16000" voldepspeed="False" />
+            <Multi accel="5760" decel="16000" voldepspeed="False" />
+          </Aspirate>
+          <Dispense>
+            <Single accel="5760" decel="16000" voldepspeed="False" />
+            <Multi accel="5760" decel="16000" voldepspeed="False" />
+          </Dispense>
+          <Impulse custom="False" voltage="0" frequency="0" />
+          <Synch plungerStart="0" plungerDuration="100" piezo1Start="0" piezo1Duration="0" piezo2Start="0" piezo2Duration="0" pinchPulses="0" />
+          <Backlash TAG="1" Sample="1" TagVolume="2" SampleVolume="2" />
+        </MuPipPlunger>
+      </SubClass>
+      <SubClass tipType="MCADiTi" all="False" min="20.01" max="200.01">
+        <Aspirate>
+          <Single speed="100" delay="200" pinchValve="False">
+            <STAG volume="20" speed="20" delay="0" />
+            <LAG volume="5" speed="20" delay="0" />
+            <TAG volume="10" speed="20" delay="0" />
+            <Excess volume="0" unit="0" destination="0" replaceCounter="1" />
+            <Conditioning volume="0" destination="1" />
+          </Single>
+          <Multi speed="100" delay="200" pinchValve="False">
+            <STAG volume="20" speed="20" delay="0" />
+            <LAG volume="0" speed="20" delay="0" />
+            <TAG volume="0" speed="20" delay="0" />
+            <Excess volume="30" unit="0" destination="0" replaceCounter="2" />
+            <Conditioning volume="30" destination="1" />
+          </Multi>
+          <LLD detect="True" position="0" offset="0" xOffset="0" yOffset="0" onError="0" />
+          <ExitSignal detect="False" onError="0" onPMPError="0" />
+          <Mix enabled="False" volume="100" cycles="1" position="0" offset="0" />
+          <Retract speed="5" position="2" offset="0" />
+        </Aspirate>
+        <Dispense>
+          <Single speed="200" breakoff="150" delay="200" tag="False" pinchValve="False" delayBefore="0" />
+          <Multi speed="200" breakoff="400" delay="200" tag="False" pinchValve="False" delayBefore="0" />
+          <LLD detect="False" position="6" offset="2" xOffset="0" yOffset="0" onError="0" />
+          <TipTouching direction="0" speed="10" delay="100" />
+          <Mix enabled="False" volume="100" cycles="1" position="0" offset="0" />
+          <Retract speed="40" position="2" offset="0" />
+          <ActiveTips piezoStartDelay="0" piezoStopDelay="0" dilutorStartDelay="0" dilutorStopDelay="0" />
+        </Dispense>
+        <Calibration>
+          <Single offset="0.4" factor="1.05" />
+          <Multi offset="0" factor="1" />
+          <Separate>
+            <Single>
+              <Tip1 separate="False" offset="0" factor="1" />
+              <Tip2 separate="False" offset="0" factor="1" />
+              <Tip3 separate="False" offset="0" factor="1" />
+              <Tip4 separate="False" offset="0" factor="1" />
+              <Tip5 separate="False" offset="0" factor="1" />
+              <Tip6 separate="False" offset="0" factor="1" />
+              <Tip7 separate="False" offset="0" factor="1" />
+              <Tip8 separate="False" offset="0" factor="1" />
+            </Single>
+            <Multi>
+              <Tip1 separate="False" offset="0" factor="1" />
+              <Tip2 separate="False" offset="0" factor="1" />
+              <Tip3 separate="False" offset="0" factor="1" />
+              <Tip4 separate="False" offset="0" factor="1" />
+              <Tip5 separate="False" offset="0" factor="1" />
+              <Tip6 separate="False" offset="0" factor="1" />
+              <Tip7 separate="False" offset="0" factor="1" />
+              <Tip8 separate="False" offset="0" factor="1" />
+            </Multi>
+          </Separate>
+        </Calibration>
+        <MPCalibration dropVolume="1" offsetV="0" factorV="1" offsetF="0" factorF="1" offsetPW="0" factorPW="1">
+          <Separate>
+            <Tip1 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip2 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip3 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip4 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip5 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip6 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip7 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+            <Tip8 separate="False" voltage="100" frequency="80" pulseWidth="45" />
+          </Separate>
+        </MPCalibration>
+        <MuPipPlunger>
+          <Aspirate>
+            <Single accel="5760" decel="16000" voldepspeed="False" />
+            <Multi accel="5760" decel="16000" voldepspeed="False" />
+          </Aspirate>
+          <Dispense>
+            <Single accel="5760" decel="16000" voldepspeed="False" />
+            <Multi accel="5760" decel="16000" voldepspeed="False" />
+          </Dispense>
+          <Impulse custom="False" voltage="0" frequency="0" />
+          <Synch plungerStart="0" plungerDuration="100" piezo1Start="0" piezo1Duration="0" piezo2Start="0" piezo2Duration="0" pinchPulses="0" />
+          <Backlash TAG="1" Sample="1" TagVolume="2" SampleVolume="2" />
+        </MuPipPlunger>
+      </SubClass>
+    </SubClasses>
+  </LiquidClass>
+</LiquidClasses>

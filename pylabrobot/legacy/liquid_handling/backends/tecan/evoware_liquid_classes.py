@@ -225,6 +225,10 @@ class LiquidClassLibrary:
 
   def _subclass(self, name: str, volume: float, tip_type: str):
     if name not in self.classes:
+      # a customized class as EVOware notes it ('>> Water Mix Gentle <<\t11'); parsing the XML
+      # attribute turns the tab into a space
+      name = name.replace("\t", " ")
+    if name not in self.classes:
       raise KeyError(f"liquid class {name!r} not found")
     lc, source = self.classes[name]
     for sc in lc.iter("SubClass"):
@@ -259,17 +263,22 @@ class LiquidClassLibrary:
 #   Global LLD speed (mm/s)    -> SSL * 10;  doubleDist (mm) -> SDL * 10
 #   LLD offset (mm)            -> SBL * 10 (submerge below the surface; negative = above it)
 #   Retract speed (mm/s)       -> SSZ * 10
-# Only position codes seen in the logs are accepted (LIHA_*_POSITIONS).
+# Only position codes seen in the logs are known (LIHA_*_POSITIONS); others parse as "unverified ..."
+# and each planner in liha.py accepts only the positions it reproduces.
 
-# Aspirate/LLD position -> meaning (only with detect="True")
-LIHA_ASPIRATE_POSITIONS = {3: "liquid_level"}
-# Aspirate/Retract position: 4 = relative to the detected surface (offset -5 = 5 mm above it)
-LIHA_ASPIRATE_RETRACT_POSITIONS = {4: "liquid_level"}
+# Aspirate/LLD position -> meaning (only with detect="True"): 3 = detected surface (+ submerge, with
+# tracking); 0 = labware z_max after detecting (logged Mix with ">> Water Mix Gentle <<\t11":
+# MET, then PAZ1007 = SML). Which planner accepts which position is checked in liha.py.
+LIHA_ASPIRATE_POSITIONS = {3: "liquid_level", 0: "z_max"}
+# Aspirate/Retract position: 4 = relative to the detected surface (offset -5 = 5 mm above it);
+# 2 = labware z_start (in classes used for Mix, whose retract follows Dispense/Retract)
+LIHA_ASPIRATE_RETRACT_POSITIONS = {4: "liquid_level", 2: "z_start"}
 # Dispense/LLD position: 0 without detection = labware z_dispense (free dispense);
 # 3 with detection = detected surface (wet contact)
 LIHA_DISPENSE_POSITIONS = {(False, 0): "z_dispense", (True, 3): "liquid_level"}
-# Dispense/Retract position: 1 = labware z_dispense
-LIHA_DISPENSE_RETRACT_POSITIONS = {1: "z_dispense"}
+# Dispense/Retract position: 1 = labware z_dispense; 2 = labware z_start (logged Mix: SSZ400 =
+# retract speed 40 mm/s, MAZ1237 = STL)
+LIHA_DISPENSE_RETRACT_POSITIONS = {1: "z_dispense", 2: "z_start"}
 
 
 @dataclass(frozen=True)
@@ -430,8 +439,11 @@ def subclass_to_liha(name: str, global_, sc, source: str = "") -> LihaLiquidClas
     refuse("aspiration without liquid level detection is not verified for the LiHa")
 
   def code(table, key, what):
+    # Unknown codes are kept as "unverified ..." and refused by the planner that needs them
+    # (liha.py), so a class used only for e.g. Mix is not refused for its unused dispense position.
     if key not in table:
-      refuse(f"{what} position {key} is not verified for the LiHa")
+      code_ = key[1] if isinstance(key, tuple) else key
+      return f"unverified {what} position {code_}"
     return table[key]
 
   dispense_lld = _attr(sc, "Dispense/LLD", "detect", bool)

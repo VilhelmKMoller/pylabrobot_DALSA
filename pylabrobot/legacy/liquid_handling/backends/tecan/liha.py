@@ -346,8 +346,9 @@ def format_command(command: str, params: Sequence[Optional[int]]) -> str:
 
 def normalize_log(commands: Sequence[str]) -> List[str]:
   """Reduce EVOware's C5 commands for comparison with a plan: drop position
-  reads (RPX/RPY) and repeats of a command already sent before the first PAA
-  (EVOware re-sends SSM1/SHZ while planning the move)."""
+  reads (RPX/RPY) and repeats of a command already sent before the first PAA or
+  RTS (EVOware re-sends SSM1/SHZ while planning the move; a step without a move,
+  such as an aspirate right after a Mix in the same wells, starts with RTS)."""
   out: List[str] = []
   moved = False
   for c in commands:
@@ -356,7 +357,7 @@ def normalize_log(commands: Sequence[str]) -> List[str]:
       continue
     if not moved and c in out:
       continue
-    moved = moved or c.startswith("PAA")
+    moved = moved or c.startswith(("PAA", "RTS"))
     out.append(c)
   return out
 
@@ -415,6 +416,15 @@ def _move(plan: Plan, geo: LihaGeometry, pos: Position, z: List[Optional[int]], 
   plan.add("SSM", 1)
   plan.add("PAA", pos.x, pos.y, pos.y_spacing, *z)
   plan.add("SSM", 0)
+
+
+def _require(lc, what: str, value, allowed: Sequence, planner: str) -> None:
+  """Refuse a liquid-class position this planner does not reproduce."""
+  if value not in allowed:
+    raise NotImplementedError(
+      f"{lc.name} ({lc.tip_type} {lc.volume_range[0]}-{lc.volume_range[1]}): {what} {value!r} is"
+      f" not supported by {planner} (supported: {', '.join(map(repr, allowed))})"
+    )
 
 
 def _ceil(value: float) -> int:
@@ -530,6 +540,7 @@ def plan_aspirate(
   volume: float,
   diti: str,
   plunger: Sequence[int],
+  after_mix_z: Optional[int] = None,
 ) -> AspiratePlan:
   """EVOware "Aspirate" with liquid level detection, single mode, ``volume`` uL per tip.
 
@@ -538,11 +549,24 @@ def plan_aspirate(
   air gap EVOware tops this up to the sub-class's system trailing air gap (STAG): logged PPR45 =
   (20 - 10) + 5 uL with 10 uL already in the tip, PPR75 = 20 + 5 with an empty tip, PPR15 = 5 with
   20 uL in the tip.
+
+  ``after_mix_z``: the same tips just mixed in the same wells (``plan_mix``) and stand there at this Z.
+  EVOware then neither moves nor takes an air gap (the mix's leading air gap is still in the tip),
+  and returns to this Z instead of the Z range after the detection (logged, 9 of 9 Mix steps of
+  EVO_20260409_111830).
   """
   n = geo.machine.tip_count
   tips = _check_tips(tips, n)
   if len(plunger) != n:
     raise ValueError(f"plunger must have {n} values")
+  _require(lc, "aspirate position", lc.aspirate_position, ("liquid_level",), "plan_aspirate")
+  _require(
+    lc,
+    "aspirate retract position",
+    lc.aspirate_retract_position,
+    ("liquid_level",),
+    "plan_aspirate",
+  )
   fw = _lc_values(lc, geo)
   mode = lc.single
   pos = geo.tips(site, column, row, tips[0])
@@ -550,16 +574,23 @@ def plan_aspirate(
   z_travel = geo.z(site, "z_travel", diti)
   calibrated = mode.calibrated(volume)
   steps = fw.aspirate_steps(volume)
-  stag = fw.steps(mode.system_trail_air_gap)
-  lead = [max(0, stag - plunger[c]) + fw.steps(mode.lead_air_gap) for c in range(n)]
+  lead = [lead_air_steps(fw, mode, plunger[c]) for c in range(n)]
   depth = tracking(calibrated, lw.area)
 
   plan = Plan()
-  _move(plan, geo, pos, _each(n, tips, z_travel, geo.z_range), ssm_first=False)
-  plan.add("RTS")
-  plan.add("PVL", *_each(n, tips, 0))
-  plan.add("SEP", *_each(n, tips, fw.speed(mode.lead_speed)))
-  plan.add("PPR", *_per_tip(n, tips, lead))
+  if after_mix_z is None:
+    _move(plan, geo, pos, _each(n, tips, z_travel, geo.z_range), ssm_first=False)
+    plan.add("RTS")
+    plan.add("PVL", *_each(n, tips, 0))
+    plan.add("SEP", *_each(n, tips, fw.speed(mode.lead_speed)))
+    plan.add("PPR", *_per_tip(n, tips, lead))
+    z_after: List[Optional[int]] = [geo.z_range] * n
+  else:
+    plan.add("SSM", 1)
+    plan.add("SSM", 0)
+    plan.add("SHZ", *_each(n, tips, after_mix_z, geo.z_range))
+    plan.add("RTS")
+    z_after = _each(n, tips, after_mix_z, geo.z_range)
   plan.add("SDM", *fw.detection_mode)
   plan.add("SSL", *_each(n, tips, fw.search_speed))
   plan.add("SDL", *_each(n, tips, fw.retract_distance))
@@ -568,7 +599,7 @@ def plan_aspirate(
   plan.add("SBL", *_each(n, tips, fw.submerge()))
   plan.add("SHZ", *_each(n, tips, z_travel, geo.z_range))
   plan.add("MDT", tip_mask(tips), None, None, None, *_each(n, tips, depth, 0))
-  plan.add("SHZ", *[geo.z_range] * n)
+  plan.add("SHZ", *z_after)
   return AspiratePlan(
     plan,
     dict(geo=geo, fw=fw, tips=tips, steps=steps, depth=depth, mode=mode),
@@ -596,18 +627,21 @@ def _aspirate_finish(geo, fw, tips, steps, depth, mode, detected: Sequence[int])
   return plan
 
 
-def aspirated_steps(lc, geo: LihaGeometry, volume: float, plunger_before: int) -> int:
-  """Plunger position of one tip after ``plan_aspirate``: top-up + LAG + liquid + TAG."""
+def aspirated_steps(
+  lc, geo: LihaGeometry, volume: float, plunger_before: int, after_mix: bool = False
+) -> int:
+  """Plunger position of one tip after ``plan_aspirate``: top-up + LAG + liquid + TAG (no top-up
+  and LAG right after a Mix in the same wells)."""
   fw = _lc_values(lc, geo)
   m = lc.single
-  stag = fw.steps(m.system_trail_air_gap)
-  return int(
-    plunger_before
-    + max(0, stag - plunger_before)
-    + fw.steps(m.lead_air_gap)
-    + fw.aspirate_steps(volume)
-    + fw.steps(m.trail_air_gap)
-  )
+  air = 0 if after_mix else lead_air_steps(fw, m, plunger_before)
+  return int(plunger_before + air + fw.aspirate_steps(volume) + fw.steps(m.trail_air_gap))
+
+
+def lead_air_steps(fw, mode, plunger_before: int) -> int:
+  """Air EVOware takes before aspirating or mixing: the top-up to the STAG plus the LAG (steps)."""
+  stag = fw.steps(mode.system_trail_air_gap)
+  return int(max(0, stag - plunger_before) + fw.steps(mode.lead_air_gap))
 
 
 @dataclass
@@ -659,6 +693,16 @@ def plan_dispense(
   tips = _check_tips(tips, n)
   if len(plunger) != n:
     raise ValueError(f"plunger must have {n} values")
+  _require(
+    lc,
+    "dispense position",
+    (lc.dispense_lld, lc.dispense_position),
+    ((False, "z_dispense"), (True, "liquid_level")),
+    "plan_dispense",
+  )
+  _require(
+    lc, "dispense retract position", lc.dispense_retract_position, ("z_dispense",), "plan_dispense"
+  )
   fw = _lc_values(lc, geo)
   m = lc.single
   pos = geo.tips(site, column, row, tips[0])
@@ -721,3 +765,135 @@ def _dispense_finish(
   plan.add("MAZ", *_each(n, tips, z_dispense))
   plan.add("RTS")
   return plan
+
+
+@dataclass
+class MixPlan:
+  """A mix in two parts: ``search`` up to and including the liquid detection (MET); then
+  ``finish(detected)`` with the Z positions the instrument reports after MET (RPZ0). EVOware reads
+  them; with the mix at z_max the strokes do not depend on them."""
+
+  search: Plan
+  finish_args: dict
+
+  def finish(self, detected: Sequence[int]) -> Plan:
+    return _mix_finish(detected=detected, **self.finish_args)
+
+  @property
+  def retract_z(self) -> int:
+    """Z of the tips after the mix (Dispense/Retract position)."""
+    return int(self.finish_args["z_retract"])
+
+
+def plan_mix(
+  geo: LihaGeometry,
+  lc,
+  site: LihaSite,
+  column: int,
+  row: int,
+  tips: Sequence[int],
+  volume: float,
+  cycles: int,
+  diti: str,
+  plunger: Sequence[int],
+) -> MixPlan:
+  """EVOware "Mix", single mode: ``cycles`` times aspirate and dispense ``volume`` uL per tip.
+
+  ``lc``: the ``LihaLiquidClass`` for ``volume``; ``diti``: the mounted DiTi labware; ``plunger``:
+  current plunger positions (steps) of all channels. As logged (EVO_20260409_111830, 9 steps with
+  ">> Water Mix Gentle <<\\t11"):
+
+  - move at z_travel, then the leading air gap as before an aspirate (STAG top-up + LAG; no PVL0);
+  - liquid level detection with MET (Zadd 0), then PAZ to the labware's z_max (Aspirate/LLD
+    position 0);
+  - each cycle: aspirate ``volume`` *uncalibrated* (150 uL -> MTR450) at the aspirate speed, then
+    dispense it at the dispense and breakoff speeds; STZ0 (no tracking);
+  - retract with Dispense/Retract: its speed (SSZ) to z_start or z_dispense (MAZ).
+
+  The class delays after each stroke are host waits here. The log does not show them, but the step
+  time fits (about 9 s for 3 cycles of 150 uL, 6.75 s of plunger moves). The mix leaves the
+  leading air gap in the tips: plunger after = before + ``lead_air_steps``.
+
+  Mixing at the liquid level (Aspirate/LLD position 3, with Z tracking) is refused: it was logged
+  only 7 times (2026-02, DeepWell, 1 cycle), and EVOware's dispense tracking speed there (SSZ185
+  for STZ9, MTR-90 at SEP3600) does not follow ``tracking_speed`` (180).
+  """
+  n = geo.machine.tip_count
+  tips = _check_tips(tips, n)
+  if len(plunger) != n:
+    raise ValueError(f"plunger must have {n} values")
+  if cycles < 1:
+    raise ValueError("cycles must be at least 1")
+  if volume <= 0:
+    raise ValueError("volume must be positive")
+  _require(lc, "aspirate position", lc.aspirate_position, ("z_max",), "plan_mix")
+  _require(
+    lc,
+    "dispense retract position",
+    lc.dispense_retract_position,
+    ("z_start", "z_dispense"),
+    "plan_mix",
+  )
+  for what, value in (
+    ("aspirate LLD offset", lc.aspirate_offset),
+    ("dispense retract offset", lc.dispense_retract_offset),
+  ):
+    if value != 0:
+      raise NotImplementedError(f"{lc.name}: a {what} ({value} mm) is not verified for Mix")
+  fw = _lc_values(lc, geo)
+  mode = lc.single
+  pos = geo.tips(site, column, row, tips[0])
+  z_max = geo.z(site, "z_max", diti)
+
+  plan = Plan()
+  _move(plan, geo, pos, _each(n, tips, geo.z(site, "z_travel", diti), geo.z_range), ssm_first=False)
+  plan.add("RTS")
+  plan.add("SEP", *_each(n, tips, fw.speed(mode.lead_speed)))
+  plan.add("PPR", *_per_tip(n, tips, [lead_air_steps(fw, mode, plunger[c]) for c in range(n)]))
+  plan.add("SDM", *fw.detection_mode)
+  plan.add("SSL", *_each(n, tips, fw.search_speed))
+  plan.add("SDL", *_each(n, tips, fw.retract_distance))
+  plan.add("STL", *_each(n, tips, geo.z(site, "z_start", diti)))
+  plan.add("SML", *_each(n, tips, z_max, geo.z_range))
+  plan.add("SBL", *_each(n, tips, fw.submerge()))
+  plan.add("MET", tip_mask(tips), None, None, None, *_each(n, tips, 0, 0))
+  return MixPlan(
+    plan,
+    dict(
+      geo=geo,
+      fw=fw,
+      tips=tips,
+      steps=fw.steps(volume),
+      cycles=cycles,
+      mode=mode,
+      z_max=z_max,
+      z_retract=geo.z(site, lc.dispense_retract_position, diti),
+    ),
+  )
+
+
+def _mix_finish(geo, fw, tips, steps, cycles, mode, z_max, z_retract, detected) -> Plan:
+  n = geo.machine.tip_count
+  if len(detected) != n:
+    raise ValueError(f"detected must have {n} values")
+  plan = Plan()
+  plan.add("PAZ", *_each(n, tips, z_max))
+  for _ in range(cycles):
+    plan.add("SEP", *_each(n, tips, fw.speed(mode.aspirate_speed)))
+    plan.add("STZ", *_each(n, tips, 0))
+    plan.add("MTR", *_each(n, tips, steps))
+    plan.wait(mode.aspirate_delay_ms)
+    plan.add("SEP", *_each(n, tips, fw.speed(mode.dispense_speed)))
+    plan.add("SPP", *_each(n, tips, fw.speed(mode.breakoff_speed)))
+    plan.add("STZ", *_each(n, tips, 0))
+    plan.add("MTR", *_each(n, tips, -steps))
+    plan.wait(mode.dispense_delay_ms)
+  plan.add("SSZ", *_each(n, tips, fw.retract_speed(dispense=True)))
+  plan.add("MAZ", *_each(n, tips, z_retract))
+  plan.add("RTS")
+  return plan
+
+
+def mixed_steps(lc, geo: LihaGeometry, plunger_before: int) -> int:
+  """Plunger position of one tip after ``plan_mix``: the leading air gap stays in the tip."""
+  return plunger_before + lead_air_steps(_lc_values(lc, geo), lc.single, plunger_before)

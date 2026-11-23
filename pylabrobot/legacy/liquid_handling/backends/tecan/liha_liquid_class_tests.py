@@ -203,8 +203,9 @@ class GoldenLiquidClassTests(unittest.TestCase):
           )
     self.assertEqual(failures, [])
     self.assertGreater(checked, 2500)
-    # logged only aspirating; its dispense position code 6 is not verified
-    self.assertEqual(refused, {"Water dry contact High density plate"})
+    # "Water dry contact High density plate" (logged only aspirating) parses too: its unverified
+    # dispense position code 6 is refused by plan_dispense, not by the parser
+    self.assertEqual(refused, set())
 
   def test_simple_dispense_volume(self):
     """A full single dispense is calibrated volume + LAG + TAG, unless the tip held more."""
@@ -273,8 +274,9 @@ class LibraryTests(unittest.TestCase):
     node = sc.find("Dispense/Retract")
     assert node is not None
     node.set("position", "0")
-    with self.assertRaisesRegex(NotImplementedError, "dispense retract position 0"):
-      subclass_to_liha("x", ET.fromstring(xml[case["global"]]), sc)
+    # parsed as unverified; the planners refuse it (liha_planner_tests.test_refusals)
+    lc = subclass_to_liha("x", ET.fromstring(xml[case["global"]]), sc)
+    self.assertEqual(lc.dispense_retract_position, "unverified dispense retract position 0")
     sc = ET.fromstring(xml[case["subclass"]])
     node = sc.find("Aspirate/Mix")
     assert node is not None

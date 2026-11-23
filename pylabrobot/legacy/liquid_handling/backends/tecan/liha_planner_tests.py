@@ -12,7 +12,9 @@ positions RPP0). Our plunger bookkeeping is checked against every RPP0 EVOware r
   refused / not planned / instrument error   steps outside what the planners do
 """
 
+import dataclasses
 import json
+import re
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -38,7 +40,6 @@ PLATE_MAX_AREA = 100.0  # mm2; wells of 96-well plates are ~33 mm2, troughs thou
 INITIAL_PLUNGER = 30
 
 END_OF_RUN = "last steps of the run: EVOware raises Z (PAZ2100) or re-reads RTS as the program ends"
-CUSTOMIZED = "liquid class customized in the script command ('>> name <<'); not in the class files"
 TROUGH_300 = (
   "300 ul from the 300 ml trough: EVOware MDT Zadd/STZ 3, area rule gives 1 (156 ul gives 1 in"
   " both; 779 ul gave 1 in 2025); rule unknown, 0.2 mm"
@@ -47,9 +48,6 @@ TROUGH_300 = (
 EXPECTED: Dict[str, Dict[int, str]] = {
   "EVO_20260409_115221.json": {
     25: TROUGH_300,
-    33: CUSTOMIZED,
-    37: CUSTOMIZED,
-    41: CUSTOMIZED,
     44: END_OF_RUN,
     45: END_OF_RUN,
   },
@@ -131,6 +129,8 @@ class Replay:
     self.n = self.geo.machine.tip_count
     self.plunger: List[Optional[int]] = [INITIAL_PLUNGER] * self.n
     self.diti: Optional[str] = None
+    # (site, column, row, tips, Z) of a Mix in the previous step: an Aspirate there follows on
+    self.mixed: Optional[Tuple[LihaSite, int, int, List[int], int]] = None
     self.results: List[Tuple[int, str, str, object]] = []  # (index, step, outcome, detail)
 
   def site(self, note) -> LihaSite:
@@ -139,8 +139,9 @@ class Replay:
     return LihaSite(note["grid"], note["site"] - 1, carrier, note["labware"])
 
   def step(self, index: int, step) -> None:
+    mixed, self.mixed = self.mixed, None
     try:
-      self._step(index, step)
+      self._step(index, step, mixed)
     except NotImplementedError as exc:
       self.results.append((index, step["step"], "refused", str(exc)))
       self._unknown_after(step)
@@ -153,7 +154,7 @@ class Replay:
       elif note["action"] in ("aspirate", "dispense", "mix"):
         self.plunger[note["tip"] - 1] = None
 
-  def _step(self, index: int, step) -> None:
+  def _step(self, index: int, step, mixed) -> None:
     name = step["step"]
     cmds = step["commands"]
     errors = [(c, s) for c, s, _ in cmds if s not in (0, -1)]
@@ -191,6 +192,7 @@ class Replay:
         return
       site = self.site(first)
       assert self.diti is not None, "aspirate without DiTis"
+      after_mix = mixed is not None and mixed[:4] == (site, first["column"], first["row"], tips)
       asp = liha.plan_aspirate(
         self.geo,
         lc,
@@ -201,13 +203,14 @@ class Replay:
         lcn["volume"],
         self.diti,
         [p if p is not None else 0 for p in before],
+        after_mix_z=mixed[4] if after_mix and mixed is not None else None,
       )
       detected = reply_after(cmds, "RPZ0", "MDT")
       plan = plan_strings(asp.search) + plan_strings(asp.finish(detected))
       for t in tips:
         b = before[t - 1]
         assert b is not None
-        self.plunger[t - 1] = liha.aspirated_steps(lc, self.geo, lcn["volume"], b)
+        self.plunger[t - 1] = liha.aspirated_steps(lc, self.geo, lcn["volume"], b, after_mix)
       plate = self.geo.config.labware_def(first["labware"]).area <= PLATE_MAX_AREA
     elif name.startswith("Dispense"):
       first, lcn = notes[0], step["liquid_class"]
@@ -228,6 +231,38 @@ class Replay:
       steps = liha.dispense_steps(lc, self.geo, read, tips)
       for t in tips:
         self.plunger[t - 1] = read[t - 1] - steps[t - 1]
+      plate = self.geo.config.labware_def(first["labware"]).area <= PLATE_MAX_AREA
+    elif name.startswith("Mix"):
+      first, lcn = notes[0], step["liquid_class"]
+      tips = [t["tip"] for t in notes]
+      lc = self.lib.liha(lcn["name"], lcn["volume"])
+      before = list(self.plunger)
+      if any(before[t - 1] is None for t in tips):
+        self.results.append((index, name, "not planned", "plunger unknown after an unplanned step"))
+        self._unknown_after(step)
+        return
+      site = self.site(first)
+      assert self.diti is not None, "mix without DiTis"
+      cycles = int(re.search(r"\((\d+)x\)", step["notes"][0]).group(1))  # type: ignore[union-attr]
+      mix = liha.plan_mix(
+        self.geo,
+        lc,
+        site,
+        first["column"],
+        first["row"],
+        tips,
+        lcn["volume"],
+        cycles,
+        self.diti,
+        [p if p is not None else 0 for p in before],
+      )
+      plan = plan_strings(mix.search) + plan_strings(mix.finish(reply_after(cmds, "RPZ0", "MET")))
+      for t in tips:
+        b = before[t - 1]
+        assert b is not None
+        self.plunger[t - 1] = liha.mixed_steps(lc, self.geo, b)
+      maz = next(c for c, _, _ in reversed(cmds) if c.startswith("MAZ"))
+      self.mixed = (site, first["column"], first["row"], tips, _values(maz)[tips[0] - 1] or 0)
       plate = self.geo.config.labware_def(first["labware"]).area <= PLATE_MAX_AREA
     else:
       self.results.append((index, name, "not planned", name))
@@ -257,6 +292,7 @@ class ReplayTests(unittest.TestCase):
   def replay(self, name: str) -> Dict[str, int]:
     run = load(name)
     results = Replay(run).replay()
+    self.results = results
     expected = EXPECTED[name]
     unexplained = {}
     for i, step, outcome, detail in results:
@@ -279,13 +315,22 @@ class ReplayTests(unittest.TestCase):
     300 ml trough into a TecanExtractionPlate, 'Water wet contact' dispenses, drops into the chute."""
     counts = self.replay("EVO_20260409_115221.json")
     self.assertGreaterEqual(counts.get("same", 0), 34)
-    self.assertEqual(counts.get("plunger"), 16)  # every Dispense's RPP0 matched our bookkeeping
+    # every Dispense's RPP0 matched our bookkeeping, except after the 3 refused aspirates
+    self.assertEqual(counts.get("plunger"), 13)
+    # '>> Water wet contact <<\t15' mixes inside the aspirate (Aspirate/Mix enabled): not planned yet
+    refused = {i: d for i, _, outcome, d in self.results if outcome == "refused"}
+    self.assertEqual(sorted(refused), [33, 37, 41])
+    for reason in refused.values():
+      self.assertIn("Aspirate/Mix", reason)
 
   def test_wet_contact_run(self):
-    """REFINES_fortynding 2026-04-09 11:18: as above plus Mix steps and instrument errors."""
+    """REFINES_fortynding 2026-04-09 11:18: as above plus Mix steps ('>> Water Mix Gentle <<\t11',
+    3 x 150 uL at z_max, each followed by an Aspirate in the same wells) and instrument errors."""
     counts = self.replay("EVO_20260409_111830.json")
-    self.assertGreaterEqual(counts.get("same", 0), 25)
-    self.assertGreater(counts.get("plunger", 0), 10)
+    self.assertGreaterEqual(counts.get("same", 0), 49)
+    self.assertEqual(counts.get("plunger"), 19)
+    mixes = [outcome for _, step, outcome, _ in self.results if step.startswith("Mix")]
+    self.assertEqual(mixes, ["same"] * 9)
 
   def test_planners_for_the_2026_11_24_deck(self):
     """The deck for the visual validation: plain 1000 ul DiTis at grid 46 site 1 (MCA carrier),
@@ -336,6 +381,42 @@ class ReplayTests(unittest.TestCase):
     lc = LiquidClassLibrary.from_database(HERE / "evoware").liha("Water free dispense", 150)
     with self.assertRaisesRegex(ValueError, "nothing to dispense"):
       liha.dispense_steps(lc, geo, [60] * 8, [1])
+    trough = LihaSite(15, 2, "MP 3Pos", "Trough 300ml MCA96")
+    diti = "DiTi 1000ul LiHa"
+    # unverified position codes parse, but the planners refuse them before planning anything
+    odd = dataclasses.replace(
+      lc, dispense_retract_position="unverified dispense retract position 0"
+    )
+    with self.assertRaisesRegex(NotImplementedError, "dispense retract position"):
+      liha.plan_dispense(geo, odd, trough, 1, 1, [1], diti, [500] * 8)
+    with self.assertRaisesRegex(NotImplementedError, "dispense retract position"):
+      liha.plan_mix(
+        geo,
+        dataclasses.replace(odd, aspirate_position="z_max"),
+        trough,
+        1,
+        1,
+        [1],
+        100,
+        3,
+        diti,
+        [30] * 8,
+      )
+    # a liquid-level class cannot mix (tracking not reproduced); a z_max class cannot aspirate
+    with self.assertRaisesRegex(NotImplementedError, "aspirate position 'liquid_level'"):
+      liha.plan_mix(geo, lc, trough, 1, 1, [1], 100, 3, diti, [30] * 8)
+    with self.assertRaisesRegex(NotImplementedError, "aspirate position 'z_max'"):
+      liha.plan_aspirate(
+        geo,
+        dataclasses.replace(lc, aspirate_position="z_max"),
+        trough,
+        1,
+        1,
+        [1],
+        100,
+        diti,
+        [30] * 8,
+      )
 
 
 if __name__ == "__main__":

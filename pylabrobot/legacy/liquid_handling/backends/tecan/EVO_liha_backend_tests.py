@@ -47,6 +47,7 @@ class FakeController:
     self.plunger = [plunger] * 8
     self.z = [2100] * 8
     self.x = {"C5": 45, "C1": 9000}
+    self.y = [1031, 90]  # LiHa Y and tip spacing (RPY0)
     self.mca = [6000, 1000, 2370, 900]
     self.sent = []
     self.fail = {}
@@ -92,8 +93,11 @@ class FakeController:
       data = list(self.z) if params[0] == 0 else [2100] * 8
     elif command == "RPP":
       data = list(self.plunger)
+    elif command == "RPY":
+      data = list(self.y)
     elif command == "PAA":
       self.x["C5"] = params[0]
+      self.y = [params[1], params[2]]
       for i, z in self._tips(params[3:]):
         self.z[i] = z
     elif command in ("MAZ", "PAZ"):
@@ -234,6 +238,7 @@ class DeckModelTests(_TipDiameter, unittest.TestCase):
 
 
 RACK = liha.LihaSite(46, 0, "MCA96 Carrier 4 pos", "DiTi 1000ul LiHa")
+MIX_CLASS = ">> Water Mix Gentle <<\t11"  # the instrument's mix class (test_data CustomLCs.XML)
 TROUGH = liha.LihaSite(15, 2, "MP 3Pos", "Trough 300ml MCA96")
 PLATE = liha.LihaSite(21, 2, "MP 3Pos", "96 Well DeepWell")
 DITI = "DiTi 1000ul LiHa"
@@ -465,6 +470,89 @@ class LihaOperationTests(_TipDiameter, _Backend):
       await self.lh.drop_tips([other] * 8)
     self.assertEqual(self.c5(), [])
     self.assertEqual(self.fake.mounted, 255)
+
+  async def _mix(self, wells="A1:H1"):
+    await self.backend.liha_mix(self.plate[wells], 150, 3, list(range(8)), MIX_CLASS)
+
+  async def test_mix_then_aspirate_in_the_same_wells(self):
+    """EVOware Mix (3 x 150 uL at z_max), then Aspirate where the tips are: no move, no air gap."""
+    tips = list(range(1, 9))
+    await self.lh.pick_up_tips(self.rack["A1:H1"])
+    self.fake.sent.clear()
+    await self._mix()
+    mix = liha.plan_mix(
+      self.geo, self.lib.liha(MIX_CLASS, 150), PLATE, 1, 1, tips, 150, 3, DITI, [30] * 8
+    )
+    expected = liha.plan_strings(mix.search) + liha.plan_strings(mix.finish([SURFACE] * 8))
+    self.assertEqual(self.moves(), self.without_rts(expected))
+    z_max = self.geo.z(PLATE, "z_max", DITI)
+    self.assertIn("PAZ" + ",".join([str(z_max)] * 8), expected)
+    self.assertEqual(
+      self.c5("MTR"), ["MTR" + ",".join(["450"] * 8), "MTR" + ",".join(["-450"] * 8)] * 3
+    )
+    self.assertEqual(self.fake.plunger, [75] * 8)  # 30 + top-up to the 20 uL STAG + 5 uL LAG
+    self.assertEqual(self.fake.z, [mix.retract_z] * 8)
+
+    self.fake.sent.clear()
+    await self.lh.aspirate(self.plate["A1:H1"], vols=[150] * 8, liquid_class="Water wet contact")
+    lc = self.lib.liha("Water wet contact", 150)
+    asp = liha.plan_aspirate(
+      self.geo, lc, PLATE, 1, 1, tips, 150, DITI, [75] * 8, after_mix_z=mix.retract_z
+    )
+    expected = liha.plan_strings(asp.search) + liha.plan_strings(asp.finish([SURFACE] * 8))
+    self.assertEqual(self.moves(), self.without_rts(expected))
+    self.assertEqual(
+      self.c5("PAA", "PPR", "PVL"), ["PVL" + ",".join(["0"] * 8), "PPR" + ",".join(["30"] * 8)]
+    )  # only the TAG
+    self.assertEqual(self.fake.plunger, [liha.aspirated_steps(lc, self.geo, 150, 75, True)] * 8)
+    await self.lh.dispense(self.plate["A1:H1"], vols=[150] * 8)
+    self.assertEqual(self.fake.plunger, [60] * 8)
+
+  async def test_aspirate_in_other_wells_after_a_mix_moves_first(self):
+    await self.lh.pick_up_tips(self.rack["A1:H1"])
+    await self._mix("A1:H1")
+    self.fake.sent.clear()
+    await self.lh.aspirate(self.plate["A2:H2"], vols=[150] * 8, liquid_class="Water wet contact")
+    self.assertEqual(len(self.c5("PAA")), 1)
+    self.assertIn("PPR" + ",".join(["15"] * 8), self.c5("PPR"))  # LAG again (75 >= STAG)
+
+  async def test_aspirate_after_a_mix_moves_back_if_the_arm_was_pushed(self):
+    await self.lh.pick_up_tips(self.rack["A1:H1"])
+    await self._mix()
+    self.fake.x["C5"] += 500  # e.g. the X coordinator moved the LiHa aside for another arm
+    self.fake.sent.clear()
+    await self.lh.aspirate(self.plate["A1:H1"], vols=[150] * 8, liquid_class="Water wet contact")
+    self.assertEqual(len(self.c5("PAA")), 1)
+
+  async def test_mix_refused_before_anything_is_sent(self):
+    with self.assertRaisesRegex(RuntimeError, "pick_up_tips"):
+      await self._mix()
+    await self.lh.pick_up_tips(self.rack["A1:H1"])
+    self.fake.sent.clear()
+    # "Water free dispense" detects at the liquid level: mixing there (with tracking) is refused
+    with self.assertRaisesRegex(NotImplementedError, "aspirate position 'liquid_level'"):
+      await self.backend.liha_mix(
+        self.plate["A1:H1"], 150, 3, list(range(8)), "Water free dispense"
+      )
+    for cycles in (0, 1.5, True):
+      with self.subTest(cycles=cycles), self.assertRaises(ValueError):
+        await self.backend.liha_mix(self.plate["A1:H1"], 150, cycles, list(range(8)), MIX_CLASS)  # type: ignore[arg-type]
+    with self.assertRaisesRegex(NotImplementedError, "consecutive rows"):
+      await self.backend.liha_mix(
+        self.plate["A1:G1"] + self.plate["A2:A2"], 150, 3, list(range(8)), MIX_CLASS
+      )
+    self.assertEqual(self.c5(), [])
+
+  async def test_mix_without_liquid_is_reported_per_channel(self):
+    await self.lh.pick_up_tips(self.rack["A1:H1"])
+    self.fake.fail["MET"] = (9, "@@@II@@@@@@")
+    with self.assertRaises(ChannelizedError) as ctx:
+      await self._mix()
+    self.assertEqual(set(ctx.exception.errors), {0, 1})
+    self.assertFalse(any(c.startswith("MTR") for c in self.c5()))
+    with self.assertRaisesRegex(RuntimeError, "dispense first"):
+      await self.lh.aspirate(self.plate["A1:H1"], vols=[150] * 8, liquid_class="Water wet contact")
+    await self.lh.discard_tips()
 
   async def test_firmware_layer_refuses_a_bad_plan_before_the_first_command(self):
     plan = liha.Plan()

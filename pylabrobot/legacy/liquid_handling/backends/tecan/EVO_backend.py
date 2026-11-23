@@ -2,6 +2,7 @@ import asyncio
 import logging
 import math
 from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass, field
 from typing import (
   Dict,
   List,
@@ -61,6 +62,14 @@ T = TypeVar("T")
 
 LIHA_DEFAULT_CLASS = "Water free dispense"
 UNKNOWN = "unknown"  # LiHa channel contents after an interrupted liquid step
+
+
+@dataclass(frozen=True)
+class _LihaTarget:
+  """A container for ``liha_mix``, shaped like a liquid-handling op for ``_liha_target``."""
+
+  resource: Resource
+  offset: Coordinate = field(default_factory=Coordinate.zero)
 
 
 class TecanLiquidHandler(LiquidHandlerBackend, metaclass=ABCMeta):
@@ -197,6 +206,9 @@ class EVOBackend(TecanLiquidHandler):
   ROMA = "C1"
   MCA = "W1"
   PNP = "W2"
+
+  # (site, column, row, tips, Z) after a successful liha_mix; any other LiHa operation clears it
+  _liha_mixed: Optional[tuple] = None
 
   def __init__(
     self,
@@ -467,8 +479,11 @@ class EVOBackend(TecanLiquidHandler):
   # Supported, as on the REFINES deck: DiTis fetched from a DiTi rack and dropped into the DiTi
   # waste chute; aspirate with liquid detection and dispense (free or wet contact) of the same
   # volume on all channels, with consecutive channels over consecutive rows of one column.
-  # Not supported yet (raises): returning DiTis to a rack, mixing, multi-dispense, partial
-  # dispense, flow rates / liquid heights / blow-out other than the liquid class's.
+  # EVOware "Mix" with a mix liquid class (``liha_mix``); an aspirate right after it in the same
+  # wells follows on without moving or taking an air gap, as EVOware does.
+  # Not supported yet (raises): returning DiTis to a rack, ``mix`` in aspirate/dispense ops,
+  # multi-dispense, partial dispense, flow rates / liquid heights / blow-out other than the liquid
+  # class's.
   #
   # On an instrument error the arm is left where it stopped (EVOware's error recovery is not
   # reproduced) and the contents of the channels involved become unknown: they can only drop
@@ -691,6 +706,7 @@ class EVOBackend(TecanLiquidHandler):
     diti = self._liha_diti(ops)
     if diti != site.labware:
       raise ValueError(f"tip {diti!r} does not belong to rack {site.labware!r}")
+    self._liha_mixed = None
     plan = liha.plan_get_ditis(self._liha_geometry(), site, column, row, tips, slow_x)
     await self._liha_require_tips(use_channels, mounted=False)
     requested = liha.tip_mask(tips)
@@ -703,6 +719,15 @@ class EVOBackend(TecanLiquidHandler):
       )
     for channel in use_channels:
       self._liha_contents()[channel] = None
+      self._liha_ditis()[channel] = diti
+
+  def _liha_ditis(self) -> Dict[int, str]:
+    """EVOware DiTi labware mounted per channel (recorded by ``pick_up_tips``)."""
+    ditis: Optional[Dict[int, str]] = getattr(self, "_liha_ditis_state", None)
+    if ditis is None:
+      ditis = {}
+      self._liha_ditis_state = ditis
+    return ditis
 
   async def drop_tips(self, ops: List[Drop], use_channels: List[int]):
     """EVOware "Drop DiTis" into the DiTi waste chute (grid 1, EVOware site 7).
@@ -712,6 +737,7 @@ class EVOBackend(TecanLiquidHandler):
     position for it is fixed, so offsets (e.g. those ``discard_tips`` spreads over the trash) are
     ignored. Returning DiTis to a rack (EVOware "Set DiTis Back") is not supported yet.
     """
+    self._liha_mixed = None
     if not all(isinstance(op.resource, Trash) for op in ops):
       raise NotImplementedError("LiHa DiTis can only be dropped into the DiTi waste (a Trash resource)")
     for trash in {op.resource for op in ops}:
@@ -732,6 +758,7 @@ class EVOBackend(TecanLiquidHandler):
       )
     for channel in use_channels:
       self._liha_contents()[channel] = None
+      self._liha_ditis().pop(channel, None)
 
   async def aspirate(
     self,
@@ -748,7 +775,10 @@ class EVOBackend(TecanLiquidHandler):
     The channels must hold only air (dispense first). The liquid class's air gaps are added.
     From a trough pass its well once per channel with ``spread="custom"``: EVOware positions the
     tips itself, and PLR cannot spread 8 channels over one 80 mm well.
+    Right after ``liha_mix`` in the same wells with the same channels, the tips aspirate where they
+    are and take no air gap (the mix's is still in the tips), as EVOware does.
     """
+    mixed, self._liha_mixed = self._liha_mixed, None
     volume = self._liha_check_ops(ops)
     site, column, row, tips = self._liha_target(ops, use_channels, trough_column)
     contents = self._liha_contents()
@@ -760,7 +790,12 @@ class EVOBackend(TecanLiquidHandler):
     diti = self._liha_diti(ops)
     await self._liha_require_tips(use_channels, mounted=True)
     plunger = await self._liha_report("RPP", 0)
-    plan = liha.plan_aspirate(geo, lc, site, column, row, tips, volume, diti, plunger)
+    after_mix_z = None
+    if mixed is not None and mixed[:4] == (site, column, row, tips):
+      after_mix_z = await self._liha_still_at(geo.tips(site, column, row, tips[0]), tips, mixed[4])
+    plan = liha.plan_aspirate(
+      geo, lc, site, column, row, tips, volume, diti, plunger, after_mix_z=after_mix_z
+    )
     for channel in use_channels:
       contents[channel] = UNKNOWN
     await self._liha_execute(plan.search, use_channels)
@@ -777,6 +812,7 @@ class EVOBackend(TecanLiquidHandler):
     Dispenses everything the channels aspirated (EVOware dispenses all but the system trailing air
     gap), so ``volume`` must equal the aspirated volume.
     """
+    self._liha_mixed = None
     volume = self._liha_check_ops(ops)
     site, column, row, tips = self._liha_target(ops, use_channels, trough_column)
     contents = self._liha_contents()
@@ -802,6 +838,70 @@ class EVOBackend(TecanLiquidHandler):
       await self._liha_execute(plan.finish(detected), use_channels)
     for channel in use_channels:
       contents[channel] = None
+
+  async def liha_mix(
+    self,
+    containers: Sequence[Resource],
+    volume: float,
+    cycles: int,
+    use_channels: List[int],
+    liquid_class: str,
+    trough_column: int = 1,
+  ):
+    """EVOware "Mix", single mode: ``cycles`` times aspirate and dispense ``volume`` uL in each of
+    ``containers`` (one per channel: consecutive rows of one column, or a trough's single well).
+
+    ``liquid_class`` must be a mix class: one that mixes at the labware's z_max after detecting the
+    liquid (Aspirate/LLD position 0), such as the instrument's ">> Water Mix Gentle <<\t11"
+    (see ``liha.plan_mix``; the volume is not calibrated). The channels must hold only air. The
+    class's leading air gap stays in the tips; an ``aspirate`` right after, in the same wells with
+    the same channels, follows on from it.
+    Raises ChannelizedError (TecanLihaNoLiquidError) for channels that found no liquid.
+    """
+    self._liha_mixed = None
+    if not (math.isfinite(volume) and volume > 0):
+      raise ValueError(f"volume must be positive, got {volume}")
+    if isinstance(cycles, bool) or not isinstance(cycles, int) or cycles < 1:
+      raise ValueError(f"cycles must be a positive integer, got {cycles!r}")
+    targets = [_LihaTarget(c) for c in containers]
+    site, column, row, tips = self._liha_target(targets, use_channels, trough_column)
+    contents = self._liha_contents()
+    full = [c for c in use_channels if contents.get(c) is not None]
+    if full:
+      raise RuntimeError(
+        f"LiHa channels {full} already hold liquid or unknown contents; dispense first"
+      )
+    ditis = {self._liha_ditis().get(c) for c in use_channels}
+    if len(ditis) != 1 or None in ditis:
+      raise RuntimeError(f"LiHa channels {use_channels} need DiTis picked up by pick_up_tips")
+    diti = cast(str, ditis.pop())
+    lc = self._liha_lc(liquid_class, volume)
+    geo = self._liha_geometry()
+    # refuse an unsuitable class before anything is sent (the plunger only changes the air gap)
+    liha.plan_mix(geo, lc, site, column, row, tips, volume, cycles, diti, [0] * self.num_channels)
+    await self._liha_require_tips(use_channels, mounted=True)
+    plunger = await self._liha_report("RPP", 0)
+    plan = liha.plan_mix(geo, lc, site, column, row, tips, volume, cycles, diti, plunger)
+    for channel in use_channels:
+      contents[channel] = UNKNOWN
+    await self._liha_execute(plan.search, use_channels)
+    detected = await self._liha_report("RPZ", 0)
+    await self._liha_execute(plan.finish(detected), use_channels)
+    for channel in use_channels:
+      contents[channel] = None
+    self._liha_mixed = (site, column, row, tips, plan.retract_z)
+
+  async def _liha_still_at(self, pos: "liha.Position", tips: List[int], z: int) -> Optional[int]:
+    """``z`` if the arm is still where ``liha_mix`` left it (X, Y, spacing and the tips' Z, read
+    with RPX0/RPY0/RPZ0), else None. Another arm's move may have pushed the LiHa aside."""
+    fw = self._liha_firmware()
+    x = (await fw.execute_wire("RPX", [0]))["data"]
+    y = (await fw.execute_wire("RPY", [0]))["data"]
+    zs = await self._liha_report("RPZ", 0)
+    here = list(x[:1]) == [pos.x] and list(y[:2]) == [pos.y, pos.y_spacing]
+    if here and all(zs[t - 1] == z for t in tips):
+      return z
+    return None
 
   # ============== LiHa wash ==============
   #
@@ -853,6 +953,7 @@ class EVOBackend(TecanLiquidHandler):
     """
     if not self.liha_connected:
       raise RuntimeError("no LiHa on this instrument")
+    self._liha_mixed = None
     channels = list(range(self.num_channels)) if use_channels is None else use_channels
     plan = liha.plan_wash(
       self._liha_geometry(), waste, waste_volume_ml, waste_delay_ms, air_gap_ul, air_gap_speed, channels
