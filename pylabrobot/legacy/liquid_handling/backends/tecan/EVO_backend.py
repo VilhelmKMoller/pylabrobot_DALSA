@@ -717,9 +717,30 @@ class EVOBackend(TecanLiquidHandler):
       raise ChannelizedError(
         {c: NoTipError(f"LiHa channel {c} did not get a DiTi (RTS {mounted:08b})") for c in missing}
       )
-    for channel in use_channels:
+    for op, channel in zip(ops, use_channels):
       self._liha_contents()[channel] = None
       self._liha_ditis()[channel] = diti
+      self._liha_conductive()[channel] = getattr(op.tip, "is_conductive", None)
+
+  def _liha_conductive(self) -> Dict[int, Optional[bool]]:
+    """Per channel: whether the mounted DiTi is conductive (``Tip.is_conductive``; None = unknown),
+    recorded by ``pick_up_tips``."""
+    state: Optional[Dict[int, Optional[bool]]] = getattr(self, "_liha_conductive_state", None)
+    if state is None:
+      state = {}
+      self._liha_conductive_state = state
+    return state
+
+  def _liha_require_conductive(self, use_channels: List[int], what: str):
+    """Refuse a step with liquid level detection on channels whose DiTis are known to be
+    non-conductive: the LiHa detects capacitively, so the tips would go down to z_max and fail."""
+    state = self._liha_conductive()
+    bad = [c for c in use_channels if state.get(c) is False]
+    if bad:
+      raise ValueError(
+        f"LiHa {what} detects the liquid, which needs conductive DiTis; channels {bad} carry"
+        " non-conductive ones"
+      )
 
   def _liha_ditis(self) -> Dict[int, str]:
     """EVOware DiTi labware mounted per channel (recorded by ``pick_up_tips``)."""
@@ -759,6 +780,7 @@ class EVOBackend(TecanLiquidHandler):
     for channel in use_channels:
       self._liha_contents()[channel] = None
       self._liha_ditis().pop(channel, None)
+      self._liha_conductive().pop(channel, None)
 
   async def aspirate(
     self,
@@ -786,6 +808,7 @@ class EVOBackend(TecanLiquidHandler):
     if full:
       raise RuntimeError(f"LiHa channels {full} already hold liquid or unknown contents; dispense first")
     lc = self._liha_lc(liquid_class, volume)
+    self._liha_require_conductive(use_channels, "aspirate")
     geo = self._liha_geometry()
     diti = self._liha_diti(ops)
     await self._liha_require_tips(use_channels, mounted=True)
@@ -825,6 +848,8 @@ class EVOBackend(TecanLiquidHandler):
         f"LiHa dispenses the whole aspiration ({aspirated} uL); partial dispense is not supported"
       )
     lc = self._liha_lc(name, volume)
+    if lc.dispense_lld:
+      self._liha_require_conductive(use_channels, f"dispense ({lc.name}, wet contact)")
     geo = self._liha_geometry()
     diti = self._liha_diti(ops)
     await self._liha_require_tips(use_channels, mounted=True)
@@ -876,6 +901,7 @@ class EVOBackend(TecanLiquidHandler):
       raise RuntimeError(f"LiHa channels {use_channels} need DiTis picked up by pick_up_tips")
     diti = cast(str, ditis.pop())
     lc = self._liha_lc(liquid_class, volume)
+    self._liha_require_conductive(use_channels, "mix")
     geo = self._liha_geometry()
     # refuse an unsuitable class before anything is sent (the plunger only changes the air gap)
     liha.plan_mix(geo, lc, site, column, row, tips, volume, cycles, diti, [0] * self.num_channels)

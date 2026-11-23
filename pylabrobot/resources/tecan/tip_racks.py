@@ -1,7 +1,7 @@
 # pylint: disable=empty-docstring
 # pylint: disable=invalid-name
 # pylint: disable=line-too-long
-from typing import Dict, Optional
+from typing import Dict, Optional, Sequence
 
 from pylabrobot.resources.tecan.tecan_resource import TecanResource
 from pylabrobot.resources.tip_rack import TipRack, TipSpot
@@ -1826,7 +1826,9 @@ def DiTi_50ul_CL_LiHa(name: str) -> TecanTipRack:
 LIHA_1000UL_BOX_MODEL = "1000ul-diti-liha-box"
 
 
-def DiTi_1000ul_LiHa_box(name: str) -> TecanTipRack:
+def DiTi_1000ul_LiHa_box(
+  name: str, conductive_columns: Optional[Sequence[int]] = None
+) -> TecanTipRack:
   """The instrument's "1000ul-diti-liha-box": a plain "DiTi 1000ul LiHa" box (Tecan 10612554 /
   30000630) as used by the LiHa on this EVO, with the corrections measured on the instrument.
 
@@ -1841,9 +1843,31 @@ def DiTi_1000ul_LiHa_box(name: str) -> TecanTipRack:
     start (700) at this site in 2024-2025. Never go to 685 or below: EVOware crashed there.
 
   The correction belongs to this box in that site; re-measure if it moves to another carrier.
+
+  ``conductive_columns``: 1-based columns whose tips are conductive (``Tip.is_conductive`` True);
+  the tips in all other columns are non-conductive (False). The LiHa's liquid level detection is
+  capacitive and needs conductive tips, so the EVO backend refuses detecting steps with the others.
+  None (default): conductivity unknown (``is_conductive`` None), nothing is refused. The box loaded
+  on 2026-11-23 has conductive tips in columns 1 and 12 only (operator).
   """
   rack = DiTi_1000ul_LiHa(name)
   rack.model = LIHA_1000UL_BOX_MODEL
   rack.evoware_name = "DiTi 1000ul LiHa"  # type: ignore[attr-defined]
   rack.liha_offset = (30, 0, -83)  # type: ignore[attr-defined]
+  if conductive_columns is not None:
+    columns = set(conductive_columns)
+    if not columns <= set(range(1, 13)):
+      raise ValueError(f"conductive_columns must be within 1..12, got {sorted(columns)}")
+    rack.conductive_columns = tuple(sorted(columns))  # type: ignore[attr-defined]
+    for index, spot in enumerate(rack.get_all_items()):
+      column = index // rack.num_items_y + 1  # items are column-major
+
+      def make_tip(tip_name: str, conductive: bool = column in columns):
+        tip = DiTi_1000ul_LiHa_tip(tip_name)
+        tip.is_conductive = conductive
+        return tip
+
+      spot._make_tip_func = make_tip
+    rack.empty()
+    rack.fill()
   return rack

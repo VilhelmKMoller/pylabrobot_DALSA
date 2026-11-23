@@ -447,6 +447,42 @@ class LihaOperationTests(_TipDiameter, _Backend):
     await self.lh.pick_up_tips(self.rack["A1:H1"])
     self.assertEqual(self.c5("AGT"), ["AGT255,773,210,0"])
 
+  def _conductive_box(self):
+    """The box loaded on 2026-11-23: conductive tips in columns 1 and 12 only."""
+    carrier = self.rack.parent.parent
+    self.rack.unassign()
+    box = DiTi_1000ul_LiHa_box("liha_box", conductive_columns=(1, 12))
+    carrier[3] = box
+    return box
+
+  def test_box_conductive_columns(self):
+    box = DiTi_1000ul_LiHa_box("b", conductive_columns=(1, 12))
+    for column in range(1, 13):
+      for row in "AH":
+        tip = box.get_item(f"{row}{column}").get_tip()
+        self.assertEqual(tip.is_conductive, column in (1, 12), f"{row}{column}")
+    self.assertIsNone(DiTi_1000ul_LiHa_box("c").get_item("A1").get_tip().is_conductive)
+    with self.assertRaises(ValueError):
+      DiTi_1000ul_LiHa_box("d", conductive_columns=(0,))
+
+  async def test_detecting_steps_refused_with_non_conductive_ditis(self):
+    box = self._conductive_box()
+    await self.lh.pick_up_tips(box["A2:H2"])  # fetching and dropping work with any column
+    self.fake.sent.clear()
+    with self.assertRaisesRegex(ValueError, "conductive"):
+      await self.lh.aspirate([self.trough.get_item(0)] * 8, vols=[150] * 8, spread="custom")
+    with self.assertRaisesRegex(ValueError, "conductive"):
+      await self.backend.liha_mix(self.plate["A1:H1"], 150, 3, list(range(8)), MIX_CLASS)
+    self.assertEqual(self.c5(), [])
+    await self.lh.discard_tips()
+    self.assertEqual(self.fake.mounted, 0)
+    # a conductive column works: mix, aspirate, wet-contact dispense
+    await self.lh.pick_up_tips(box["A12:H12"])
+    await self.backend.liha_mix(self.plate["A1:H1"], 150, 3, list(range(8)), MIX_CLASS)
+    await self.lh.aspirate(self.plate["A1:H1"], vols=[150] * 8, liquid_class="Water wet contact")
+    await self.lh.dispense(self.plate["A1:H1"], vols=[150] * 8)
+    self.assertEqual(self.fake.plunger, [60] * 8)
+
   async def test_liha_box_carries_its_correction(self):
     """The operator's 1000ul-diti-liha-box applies its measured correction wherever it is used."""
     carrier = self.rack.parent.parent
