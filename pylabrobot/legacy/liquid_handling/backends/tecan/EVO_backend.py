@@ -62,6 +62,12 @@ T = TypeVar("T")
 
 LIHA_DEFAULT_CLASS = "Water free dispense"
 UNKNOWN = "unknown"  # LiHa channel contents after an interrupted liquid step
+# LiHa errors after which the tips are raised straight up (PAZ to the Z range, Z only): liquid
+# detection / clot / DiTi errors, where the arm itself is fine. EVOware then shows the operator a
+# dialog (retry, continue at z_max, or abort = PAZ to the Z range); PLR neither retries nor
+# continues. Not after a crash (10), on an uninitialized arm (1, 7), with the door open (250), or
+# for a refused command (2, 3): the arm stays where it is (read positions before recovering).
+LIHA_RAISE_Z_AFTER = frozenset({9, 11, 12, 17, 18, 19, 20, 21, 24, 25, 26, 27})
 
 
 @dataclass(frozen=True)
@@ -487,9 +493,10 @@ class EVOBackend(TecanLiquidHandler):
   # multi-dispense, partial dispense, flow rates / liquid heights / blow-out other than the liquid
   # class's.
   #
-  # On an instrument error the arm is left where it stopped (EVOware's error recovery is not
-  # reproduced) and the contents of the channels involved become unknown: they can only drop
-  # their DiTis.
+  # On an instrument error the tips are raised straight up when the arm is fine (liquid detection
+  # and DiTi errors, ``LIHA_RAISE_Z_AFTER``), otherwise the arm is left where it stopped. Nothing
+  # is retried (EVOware asks its operator). The contents of the channels involved become unknown:
+  # they can only drop their DiTis.
 
   def _liha_firmware(self) -> LihaFirmware:
     fw = getattr(self, "_liha_fw", None)
@@ -660,10 +667,22 @@ class EVOBackend(TecanLiquidHandler):
     try:
       return await self._liha_run(plan)
     except TecanLihaError as exc:
+      if exc.error_code in LIHA_RAISE_Z_AFTER:
+        await self._liha_raise_z(exc)
       channelized = self._liha_errors(exc, use_channels, requested)
       if channelized is not None:
         raise channelized from exc
       raise
+
+  async def _liha_raise_z(self, exc: Exception) -> None:
+    """After ``exc``: all tips straight up to the Z range (PAZ; X and Y stay). If that fails too,
+    the arm stays where it is and the failure is noted on ``exc``."""
+    try:
+      await self._liha_firmware().execute_wire("PAZ", [self._z_range] * self.num_channels)
+    except Exception as raise_exc:  # the original error matters more; keep it, note this one
+      exc.add_note(f"raising the LiHa tips after the error failed too: {raise_exc!r}")
+    else:
+      exc.add_note(f"the LiHa tips were raised to Z {self._z_range}")
 
   async def _liha_require_tips(self, use_channels: List[int], mounted: bool):
     """RTS before a DiTi or liquid step: DiTis must (not) be on ``use_channels``."""
@@ -954,6 +973,43 @@ class EVOBackend(TecanLiquidHandler):
     for channel in use_channels:
       contents[channel] = None
     self._liha_mixed = (site, column, row, tips, plan.retract_z)
+
+  async def liha_detect_liquid(
+    self,
+    containers: Sequence[Resource],
+    use_channels: List[int],
+    liquid_class: Optional[str] = None,
+    trough_column: int = 1,
+  ) -> Dict[int, int]:
+    """Detect the liquid surface in ``containers`` (one per channel, as for ``liha_mix``) and
+    return the detected Z per channel (firmware units, 1/10 mm; lower = deeper).
+
+    Not EVOware's "Detect Liquid" (never logged here): ``liha.plan_detect_liquid``, the verified
+    detection of an aspirate without air gap, plunger or submerge, then straight up to z_travel.
+    ``liquid_class`` (default "Water free dispense") gives the detection settings. The channels
+    must carry conductive DiTis holding only air. Raises ChannelizedError
+    (TecanLihaNoLiquidError) for channels that found no liquid; the tips are then raised.
+    """
+    self._liha_mixed = None
+    targets = [_LihaTarget(c) for c in containers]
+    site, column, row, tips = self._liha_target(targets, use_channels, trough_column)
+    contents = self._liha_contents()
+    full = [c for c in use_channels if contents.get(c) is not None]
+    if full:
+      raise RuntimeError(f"LiHa channels {full} hold liquid or unknown contents; dispense first")
+    ditis = {self._liha_ditis().get(c) for c in use_channels}
+    if len(ditis) != 1 or None in ditis:
+      raise RuntimeError(f"LiHa channels {use_channels} need DiTis picked up by pick_up_tips")
+    lc = self._liha_lc(liquid_class, 100)
+    self._liha_require_conductive(use_channels, "liquid detection")
+    search, retract = liha.plan_detect_liquid(
+      self._liha_geometry(), lc, site, column, row, tips, cast(str, ditis.pop())
+    )
+    await self._liha_require_tips(use_channels, mounted=True)
+    await self._liha_execute(search, use_channels)
+    detected = await self._liha_report("RPZ", 0)
+    await self._liha_execute(retract, use_channels)
+    return {c: detected[c] for c in use_channels}
 
   async def _liha_still_at(self, pos: "liha.Position", tips: List[int], z: int) -> Optional[int]:
     """``z`` if the arm is still where ``liha_mix`` left it (X, Y, spacing and the tips' Z, read

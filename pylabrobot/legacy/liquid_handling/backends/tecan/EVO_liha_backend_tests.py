@@ -360,7 +360,10 @@ class LihaOperationTests(_TipDiameter, _Backend):
       await self.lh.pick_up_tips(self.rack["A1:H1"])
     self.assertEqual(set(ctx.exception.errors), {2, 5})
     self.assertTrue(all(isinstance(e, NoTipError) for e in ctx.exception.errors.values()))
-    self.assertEqual(self.c5()[-1], "RTS")  # the firmware layer asked which DiTis are on
+    # the firmware layer asked which DiTis are on, then the tips went straight up (as EVOware's
+    # abort: RTS, REE, PAZ to the Z range)
+    self.assertEqual(self.c5()[-2:], ["RTS", "PAZ" + ",".join(["2100"] * 8)])
+    self.assertIn("raised to Z 2100", " ".join(getattr(ctx.exception.__cause__, "__notes__", [])))
 
   def _dispense_op(self, channel):
     return SingleChannelDispense(
@@ -382,13 +385,49 @@ class LihaOperationTests(_TipDiameter, _Backend):
     self.assertEqual(set(ctx.exception.errors), {0, 1})
     for error in ctx.exception.errors.values():
       self.assertIsInstance(error, TecanLihaNoLiquidError)
-    self.assertEqual(self.c5()[-1], "REE")
+    self.assertEqual(self.c5()[-2:], ["REE", "PAZ" + ",".join(["2100"] * 8)])
+    self.assertEqual(self.fake.z, [2100] * 8)
     self.assertFalse(any(c.startswith("MTR") for c in self.c5()))
     # the contents are unknown now: no dispense, only dropping the DiTis
     with self.assertRaisesRegex(RuntimeError, "known aspiration"):
       await self.backend.dispense([self._dispense_op(c) for c in range(8)], list(range(8)))
     await self.lh.discard_tips()
     self.assertEqual(self.fake.mounted, 0)
+
+  async def test_detect_liquid_reports_the_surface_and_moves_no_plunger(self):
+    tips = list(range(1, 9))
+    await self.lh.pick_up_tips(self.rack["A1:H1"])
+    plunger = list(self.fake.plunger)
+    self.fake.sent.clear()
+    found = await self.backend.liha_detect_liquid([self.trough.get_item(0)] * 8, list(range(8)))
+    self.assertEqual(found, {c: SURFACE for c in range(8)})
+    lc = self.lib.liha("Water free dispense", 100)
+    search, retract = liha.plan_detect_liquid(self.geo, lc, TROUGH, 1, 1, tips, DITI)
+    expected = liha.plan_strings(search) + liha.plan_strings(retract)
+    self.assertEqual(self.moves(), self.without_rts(expected))
+    self.assertIn("SBL" + ",".join(["0"] * 8), expected)  # stop at the surface
+    self.assertIn("MDT255,,,," + ",".join(["0"] * 8), expected)
+    self.assertFalse(self.c5("PPR", "MTR", "PPA", "PVL"))
+    self.assertEqual(self.fake.plunger, plunger)
+    self.assertEqual(self.fake.z, [self.geo.z(TROUGH, "z_travel", DITI)] * 8)
+    # the tips still hold only air: an aspirate may follow
+    await self.lh.aspirate([self.trough.get_item(0)] * 8, vols=[150] * 8, spread="custom")
+
+  async def test_detect_liquid_without_liquid(self):
+    await self.lh.pick_up_tips(self.rack["A1:H1"])
+    self.fake.fail["MDT"] = (9, "@@@IIIIIIII")
+    with self.assertRaises(ChannelizedError) as ctx:
+      await self.backend.liha_detect_liquid([self.trough.get_item(0)] * 8, list(range(8)))
+    self.assertEqual(set(ctx.exception.errors), set(range(8)))
+    self.assertEqual(self.fake.z, [2100] * 8)  # raised after the error
+
+  async def test_no_raise_after_a_crash(self):
+    """Error 10 (drive no load, e.g. a collision): the arm stays where it stopped."""
+    await self.lh.pick_up_tips(self.rack["A1:H1"])
+    self.fake.fail["PAA"] = (10, None)
+    with self.assertRaises(Exception):
+      await self.lh.aspirate([self.trough.get_item(0)] * 8, vols=[150] * 8, spread="custom")
+    self.assertFalse(any(c.startswith("PAZ") for c in self.c5()))
 
   async def test_refused_before_anything_is_sent(self):
     await self.lh.pick_up_tips(self.rack["A1:H1"])

@@ -952,3 +952,43 @@ def _mix_finish(geo, fw, tips, steps, cycles, mode, z_max, z_retract, detected) 
 def mixed_steps(lc, geo: LihaGeometry, plunger_before: int) -> int:
   """Plunger position of one tip after ``plan_mix``: the leading air gap stays in the tip."""
   return plunger_before + lead_air_steps(_lc_values(lc, geo), lc.single, plunger_before)
+
+
+def plan_detect_liquid(
+  geo: LihaGeometry,
+  lc,
+  site: LihaSite,
+  column: int,
+  row: int,
+  tips: Sequence[int],
+  diti: str,
+) -> Tuple[Plan, Plan]:
+  """Liquid level detection only: (search, retract). Read the surface with RPZ0 between the two.
+
+  NOT a reproduction of EVOware's "Detect Liquid" command: that was never logged on this instrument.
+  This is the verified search part of ``plan_aspirate`` (move at z_travel, the liquid class's
+  detection settings, MDT with the Z range as travel height after it) without the air gap and the
+  plunger, with no submerge (SBL0: the tips stop at the surface) and no tracking (Zadd 0); then the
+  tips go straight up to z_travel. The liquid class must detect at the liquid level."""
+  n = geo.machine.tip_count
+  tips = _check_tips(tips, n)
+  _require(lc, "aspirate position", lc.aspirate_position, ("liquid_level",), "plan_detect_liquid")
+  fw = _lc_values(lc, geo)
+  pos = geo.tips(site, column, row, tips[0])
+  z_travel = geo.z(site, "z_travel", diti)
+  search = Plan()
+  _move(search, geo, pos, _each(n, tips, z_travel, geo.z_range), ssm_first=False)
+  search.add("RTS")
+  search.add("SDM", *fw.detection_mode)
+  search.add("SSL", *_each(n, tips, fw.search_speed))
+  search.add("SDL", *_each(n, tips, fw.retract_distance))
+  search.add("STL", *_each(n, tips, geo.z(site, "z_start", diti)))
+  search.add("SML", *_each(n, tips, geo.z(site, "z_max", diti), geo.z_range))
+  search.add("SBL", *_each(n, tips, 0))
+  search.add("SHZ", *_each(n, tips, z_travel, geo.z_range))
+  search.add("MDT", tip_mask(tips), None, None, None, *_each(n, tips, 0, 0))
+  search.add("SHZ", *[geo.z_range] * n)
+  retract = Plan()
+  retract.add("PAZ", *_each(n, tips, z_travel))
+  retract.add("RTS")
+  return search, retract
