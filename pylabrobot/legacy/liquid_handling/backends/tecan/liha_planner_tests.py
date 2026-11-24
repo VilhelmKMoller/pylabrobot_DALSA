@@ -52,9 +52,14 @@ SMOOTH_MOVE = (
 )
 
 UNUSED_TIP_TRAVEL = (
-  "single tip 2-4 aspirating alone: identical move and liquid values, but EVOware first re-sends"
+  "single tip 1-4 aspirating alone: identical move and liquid values, but EVOware first re-sends"
   " SSM1/SSM0 and sets the travel height (SHZ before MDT) of the unused tips too (1461 over the"
   " plate, 635 beyond its last row); we keep unused tips at the Z range; MDT Zadd +-1 (plate model)"
+)
+
+MIX_TRACKING = (
+  "Mix at the liquid level, surface at 1020: EVOware's dispense tracking speed SSZ185, ours 181"
+  " (at 1021 both 181); EVOware's well-shape model is not reproduced (2 %)"
 )
 
 EXPECTED: Dict[str, Dict[int, str]] = {
@@ -72,7 +77,12 @@ EXPECTED: Dict[str, Dict[int, str]] = {
   "EVO_20261117_114851.json": {},
   # checker pattern: per loop Get DiTis, Mix (refused or error), tips 1-4 aspirate one by one,
   # one Dispense of tips 1-4 over rows 2, 4, 6, 8 (row stride 2), Drop DiTis
-  "EVO_20260205_141912.json": {i: UNUSED_TIP_TRAVEL for i in range(121) if i % 10 in (3, 4, 5)},
+  "EVO_20260205_141912.json": {
+    **{i: UNUSED_TIP_TRAVEL for i in range(121) if i % 10 in (3, 4, 5)},
+    **{i: MIX_TRACKING for i in (1, 51, 71)},
+    # tip 1 aspirating alone right after a Mix there (after-mix path): as UNUSED_TIP_TRAVEL
+    **{i: UNUSED_TIP_TRAVEL for i in (2, 12, 22, 32, 52, 72)},
+  },
 }
 
 
@@ -380,6 +390,10 @@ class ReplayTests(unittest.TestCase):
     outcomes = collections.Counter((step, o) for _, step, o, _ in self.results)
     self.assertEqual(outcomes[("Dispense", "same")], 12)
     self.assertEqual(outcomes[("Get DiTis", "same")], 12)
+    # Mix at the liquid level with tracking ("Water free dispense", 30 uL, DeepWell): 3 identical,
+    # 3 differing only in the dispense SSZ (listed); the others stopped with instrument errors
+    self.assertEqual(outcomes[("Mix", "same")], 3)
+    self.assertEqual(outcomes[("Mix", "different")], 3)
 
   def test_planners_for_the_2026_11_24_deck(self):
     """The deck for the visual validation: plain 1000 ul DiTis at grid 46 site 1 (MCA carrier),
@@ -463,9 +477,7 @@ class ReplayTests(unittest.TestCase):
         diti,
         [30] * 8,
       )
-    # a liquid-level class cannot mix (tracking not reproduced); a z_max class cannot aspirate
-    with self.assertRaisesRegex(NotImplementedError, "aspirate position 'liquid_level'"):
-      liha.plan_mix(geo, lc, trough, 1, 1, [1], 100, 3, diti, [30] * 8)
+    # a z_max class cannot aspirate
     with self.assertRaisesRegex(NotImplementedError, "aspirate position 'z_max'"):
       liha.plan_aspirate(
         geo,

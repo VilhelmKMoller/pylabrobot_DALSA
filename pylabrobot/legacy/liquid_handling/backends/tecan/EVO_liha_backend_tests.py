@@ -721,11 +721,6 @@ class LihaOperationTests(_TipDiameter, _Backend):
       await self._mix()
     await self.lh.pick_up_tips(self.rack["A1:H1"])
     self.fake.sent.clear()
-    # "Water free dispense" detects at the liquid level: mixing there (with tracking) is refused
-    with self.assertRaisesRegex(NotImplementedError, "aspirate position 'liquid_level'"):
-      await self.backend.liha_mix(
-        self.plate["A1:H1"], 150, 3, list(range(8)), "Water free dispense"
-      )
     for cycles in (0, 1.5, True):
       with self.subTest(cycles=cycles), self.assertRaises(ValueError):
         await self.backend.liha_mix(self.plate["A1:H1"], 150, cycles, list(range(8)), MIX_CLASS)  # type: ignore[arg-type]
@@ -734,6 +729,19 @@ class LihaOperationTests(_TipDiameter, _Backend):
         self.plate["A1:G1"] + self.plate["A2:A2"], 150, 3, list(range(8)), MIX_CLASS
       )
     self.assertEqual(self.c5(), [])
+
+  async def test_mix_at_the_liquid_level_tracks(self):
+    """A class that aspirates at the liquid level ("Water free dispense") mixes where MET found the
+    surface, tracking each stroke (EVO_20260205_141912)."""
+    await self.lh.pick_up_tips(self.rack["A1:H1"])
+    self.fake.sent.clear()
+    await self.backend.liha_mix(self.plate["A1:H1"], 30, 2, list(range(8)), "Water free dispense")
+    self.assertFalse(self.c5("PAZ"))  # no move to z_max
+    stz = [c for c in self.c5() if c.startswith("STZ")]
+    self.assertEqual(len(stz), 4)
+    self.assertTrue(stz[0].startswith("STZ-") and stz[1].startswith("STZ") and stz[1] != "STZ0")
+    met = next(c for c in self.c5() if c.startswith("MET"))
+    self.assertNotIn(",0,0,0,0,0,0,0,0", met)  # Zadd = submerge + tracking
 
   async def test_mix_without_liquid_is_reported_per_channel(self):
     await self.lh.pick_up_tips(self.rack["A1:H1"])

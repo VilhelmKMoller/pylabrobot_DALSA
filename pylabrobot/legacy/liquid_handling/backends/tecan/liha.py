@@ -554,7 +554,7 @@ def tracking(volume_ul: float, area_mm2: float) -> int:
   return _ceil(10 * volume_ul / area_mm2) if area_mm2 > 0 else 0
 
 
-def tracking_speed(distance: int, steps: int, plunger_speed_half_steps: int) -> int:
+def tracking_speed(distance: float, steps: int, plunger_speed_half_steps: int) -> int:
   """SSZ (1/10 mm/s) so the Z tracking lasts as long as the plunger move, rounded up."""
   if distance == 0 or steps == 0:
     return 1
@@ -869,9 +869,14 @@ def plan_mix(
   time fits (about 9 s for 3 cycles of 150 uL, 6.75 s of plunger moves). The mix leaves the
   leading air gap in the tips: plunger after = before + ``lead_air_steps``.
 
-  Mixing at the liquid level (Aspirate/LLD position 3, with Z tracking) is refused: it was logged
-  only 7 times (2026-02, DeepWell, 1 cycle), and EVOware's dispense tracking speed there (SSZ185
-  for STZ9, MTR-90 at SEP3600) does not follow ``tracking_speed`` (180).
+  Mixing at the liquid level (Aspirate/LLD position "liquid_level"; logged 12 times with
+  "Water free dispense", 30 uL, 1 cycle, single tip in a 96 Well DeepWell, EVO_20260205_140608 and
+  _141912): the tips stay where MET left them (no PAZ), MET Zadd = submerge + tracking, and each
+  stroke tracks: SSZ, SEP, STZ -d, MTR +V; SSZ, SEP, SPP, STZ +d, MTR -V. The tracking d is
+  round(volume / area) (uncalibrated volume, as the stroke), and 0 for a tip that would track below
+  z_max (then no SSZ is sent); SSZ = ``tracking_speed`` of the unrounded distance. All logged
+  values agree, except the dispense SSZ for a surface at 1020 (EVOware 185, ours 181; at 1021 both
+  are 181): EVOware's well-shape model, not reproduced (2 %).
   """
   n = geo.machine.tip_count
   tips = _check_tips(tips, n)
@@ -881,7 +886,7 @@ def plan_mix(
     raise ValueError("cycles must be at least 1")
   if volume <= 0:
     raise ValueError("volume must be positive")
-  _require(lc, "aspirate position", lc.aspirate_position, ("z_max",), "plan_mix")
+  _require(lc, "aspirate position", lc.aspirate_position, ("z_max", "liquid_level"), "plan_mix")
   _require(
     lc,
     "dispense retract position",
@@ -889,16 +894,22 @@ def plan_mix(
     ("z_start", "z_dispense"),
     "plan_mix",
   )
-  for what, value in (
-    ("aspirate LLD offset", lc.aspirate_offset),
-    ("dispense retract offset", lc.dispense_retract_offset),
-  ):
+  # at the liquid level the aspirate LLD offset is the submerge (SBL), as for an aspirate
+  checks = [("dispense retract offset", lc.dispense_retract_offset)]
+  if lc.aspirate_position == "z_max":
+    checks.append(("aspirate LLD offset", lc.aspirate_offset))
+  for what, value in checks:
     if value != 0:
       raise NotImplementedError(f"{lc.name}: a {what} ({value} mm) is not verified for Mix")
   fw = _lc_values(lc, geo)
   mode = lc.single
   pos = geo.tips(site, column, row, tips[0])
   z_max = geo.z(site, "z_max", diti)
+  at_level = lc.aspirate_position == "liquid_level"
+  _, _, lw = geo._parts(site)
+  distance = 10 * volume / lw.area if at_level and lw.area > 0 else 0.0  # 1/10 mm, unrounded
+  depth = round(distance)
+  zadd = fw.submerge() + depth if at_level else 0
 
   plan = Plan()
   _move(plan, geo, pos, _each(n, tips, geo.z(site, "z_travel", diti), geo.z_range), ssm_first=False)
@@ -911,7 +922,7 @@ def plan_mix(
   plan.add("STL", *_each(n, tips, geo.z(site, "z_start", diti)))
   plan.add("SML", *_each(n, tips, z_max, geo.z_range))
   plan.add("SBL", *_each(n, tips, fw.submerge()))
-  plan.add("MET", tip_mask(tips), None, None, None, *_each(n, tips, 0, 0))
+  plan.add("MET", tip_mask(tips), None, None, None, *_each(n, tips, zadd, 0))
   return MixPlan(
     plan,
     dict(
@@ -922,25 +933,42 @@ def plan_mix(
       cycles=cycles,
       mode=mode,
       z_max=z_max,
+      at_level=at_level,
+      depth=depth,
+      distance=distance,
       z_retract=geo.z(site, lc.dispense_retract_position, diti),
     ),
   )
 
 
-def _mix_finish(geo, fw, tips, steps, cycles, mode, z_max, z_retract, detected) -> Plan:
+def _mix_finish(
+  geo, fw, tips, steps, cycles, mode, z_max, at_level, depth, distance, z_retract, detected
+) -> Plan:
   n = geo.machine.tip_count
   if len(detected) != n:
     raise ValueError(f"detected must have {n} values")
   plan = Plan()
-  plan.add("PAZ", *_each(n, tips, z_max))
+  if not at_level:
+    plan.add("PAZ", *_each(n, tips, z_max))
+  # per tip: track only where the tip stays above z_max
+  d = [depth if c + 1 in tips and detected[c] - depth >= z_max else 0 for c in range(n)]
+  tracked = [t for t in tips if d[t - 1]]
+  asp, disp = fw.speed(mode.aspirate_speed), fw.speed(mode.dispense_speed)
+
+  def ssz(speed: int):
+    if tracked:
+      plan.add("SSZ", *_each(n, tracked, tracking_speed(distance, steps, speed)))
+
   for _ in range(cycles):
-    plan.add("SEP", *_each(n, tips, fw.speed(mode.aspirate_speed)))
-    plan.add("STZ", *_each(n, tips, 0))
+    ssz(asp)
+    plan.add("SEP", *_each(n, tips, asp))
+    plan.add("STZ", *_per_tip(n, tips, [-v for v in d]))
     plan.add("MTR", *_each(n, tips, steps))
     plan.wait(mode.aspirate_delay_ms)
-    plan.add("SEP", *_each(n, tips, fw.speed(mode.dispense_speed)))
+    ssz(disp)
+    plan.add("SEP", *_each(n, tips, disp))
     plan.add("SPP", *_each(n, tips, fw.speed(mode.breakoff_speed)))
-    plan.add("STZ", *_each(n, tips, 0))
+    plan.add("STZ", *_per_tip(n, tips, d))
     plan.add("MTR", *_each(n, tips, -steps))
     plan.wait(mode.dispense_delay_ms)
   plan.add("SSZ", *_each(n, tips, fw.retract_speed(dispense=True)))
