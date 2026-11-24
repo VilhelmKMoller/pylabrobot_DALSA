@@ -593,8 +593,16 @@ def plan_aspirate(
   diti: str,
   plunger: Sequence[int],
   after_mix_z: Optional[int] = None,
+  multi: bool = False,
 ) -> AspiratePlan:
   """EVOware "Aspirate" with liquid level detection, single mode, ``volume`` uL per tip.
+
+  ``multi``: multi-pipetting mode (the class's Multi sub-class), for dispensing ``volume`` in
+  portions (``plan_dispense(multi_volume=...)``). As logged (EVO_20251105_141010/141257, worklist,
+  "Water free dispense" 15-200 uL): the tips take ``volume`` + excess + conditioning, and after the
+  retract dispense the conditioning back into the source (dispense and breakoff speed); the excess
+  stays in the tip until the DiTi is dropped. Only classes whose Multi sub-class has no air gaps
+  and no calibration are verified.
 
   ``lc``: the ``LihaLiquidClass`` for ``volume``; ``diti``: the mounted DiTi labware; ``plunger``:
   current plunger positions (steps) of all channels = the air already in the tips. Before the leading
@@ -620,12 +628,22 @@ def plan_aspirate(
     "plan_aspirate",
   )
   fw = _lc_values(lc, geo)
-  mode = lc.single
+  mode = lc.multi if multi else lc.single
+  if multi:
+    _require_plain_multi(lc)
+    if lc.aspirate_mix is not None or after_mix_z is not None:
+      raise NotImplementedError(
+        f"{lc.name}: mixing before a multi-pipetting aspirate is not verified"
+      )
   pos = geo.tips(site, column, row, tips[0])
   _, _, lw = geo._parts(site)
   z_travel = geo.z(site, "z_travel", diti)
-  calibrated = mode.calibrated(volume)
-  steps = fw.aspirate_steps(volume)
+  if multi:
+    calibrated = volume + mode.excess + mode.conditioning
+    steps = fw.steps(calibrated)
+  else:
+    calibrated = mode.calibrated(volume)
+    steps = fw.aspirate_steps(volume)
   lead = [lead_air_steps(fw, mode, plunger[c]) for c in range(n)]
   depth = tracking(calibrated, lw.area)
 
@@ -654,11 +672,22 @@ def plan_aspirate(
   plan.add("SHZ", *z_after)
   return AspiratePlan(
     plan,
-    dict(geo=geo, fw=fw, tips=tips, steps=steps, depth=depth, mode=mode),
+    dict(geo=geo, fw=fw, tips=tips, steps=steps, depth=depth, mode=mode, multi=multi),
   )
 
 
-def _aspirate_finish(geo, fw, tips, steps, depth, mode, detected: Sequence[int]) -> Plan:
+def _require_plain_multi(lc) -> None:
+  m = lc.multi
+  if m.lead_air_gap or m.trail_air_gap or (m.calibration_factor, m.calibration_offset) != (1, 0):
+    raise NotImplementedError(
+      f"{lc.name}: multi-pipetting with air gaps or a calibration is not verified (logged only"
+      " without: LAG 0, TAG 0, factor 1, offset 0)"
+    )
+
+
+def _aspirate_finish(
+  geo, fw, tips, steps, depth, mode, detected: Sequence[int], multi: bool = False
+) -> Plan:
   n = geo.machine.tip_count
   if len(detected) != n:
     raise ValueError(f"detected must have {n} values")
@@ -691,6 +720,14 @@ def _aspirate_finish(geo, fw, tips, steps, depth, mode, detected: Sequence[int])
   plan.add("SSZ", *_each(n, tips, fw.retract_speed()))
   above = fw.submerge() + fw.retract_z_above_surface()
   plan.add("MAZ", *_per_tip(n, tips, [z + above for z in detected]))
+  if multi:
+    # the conditioning volume back into the source, above it; no trailing air gap (TAG 0)
+    plan.add("PVL", *_each(n, tips, 0))
+    plan.add("SEP", *_each(n, tips, fw.speed(mode.dispense_speed)))
+    plan.add("SPP", *_each(n, tips, fw.speed(mode.breakoff_speed)))
+    plan.add("PPR", *_each(n, tips, -fw.steps(mode.conditioning)))
+    plan.add("RTS")
+    return plan
   plan.add("PVL", *_each(n, tips, 0))
   plan.add("SEP", *_each(n, tips, fw.speed(mode.trail_speed)))
   plan.add("PPR", *_each(n, tips, fw.steps(mode.trail_air_gap)))
@@ -699,11 +736,22 @@ def _aspirate_finish(geo, fw, tips, steps, depth, mode, detected: Sequence[int])
 
 
 def aspirated_steps(
-  lc, geo: LihaGeometry, volume: float, plunger_before: int, after_mix: bool = False
+  lc,
+  geo: LihaGeometry,
+  volume: float,
+  plunger_before: int,
+  after_mix: bool = False,
+  multi: bool = False,
 ) -> int:
   """Plunger position of one tip after ``plan_aspirate``: top-up + LAG + liquid + TAG (no top-up
-  and LAG right after a Mix in the same wells)."""
+  and LAG right after a Mix in the same wells). ``multi``: top-up + volume + excess (the
+  conditioning went back)."""
   fw = _lc_values(lc, geo)
+  if multi:
+    mm = lc.multi
+    return int(
+      plunger_before + lead_air_steps(fw, mm, plunger_before) + fw.steps(volume + mm.excess)
+    )
   m = lc.single
   air = 0 if after_mix else lead_air_steps(fw, m, plunger_before)
   return int(plunger_before + air + fw.aspirate_steps(volume) + fw.steps(m.trail_air_gap))
@@ -757,12 +805,17 @@ def plan_dispense(
   diti: str,
   plunger: Sequence[int],
   row_stride: int = 1,
+  multi_volume: Optional[float] = None,
 ) -> DispensePlan:
   """EVOware "Dispense", single mode: free dispense at z_dispense, or wet contact (liquid detection,
   MET, then tracking up). Dispenses everything above the STAG (``dispense_steps``); ``plunger`` is the
   RPP0 reading EVOware takes before dispensing. ``row_stride``: the tips go over every
   ``row_stride``-th row (``LihaGeometry.tips``; logged: 39 dispenses with tips 1-4 over rows
-  2, 4, 6, 8, checker pattern)."""
+  2, 4, 6, 8, checker pattern).
+
+  ``multi_volume``: a portion of a multi-pipetting aspirate (``plan_aspirate(multi=True)``): that
+  many uL per tip, uncalibrated, free dispense only, the rest stays in the tip (logged: 50 uL ->
+  MTR-150, otherwise as the single free dispense)."""
   n = geo.machine.tip_count
   tips = _check_tips(tips, n)
   if len(plunger) != n:
@@ -778,10 +831,25 @@ def plan_dispense(
     lc, "dispense retract position", lc.dispense_retract_position, ("z_dispense",), "plan_dispense"
   )
   fw = _lc_values(lc, geo)
-  m = lc.single
+  m = lc.multi if multi_volume is not None else lc.single
   pos = geo.tips(site, column, row, tips[0], row_stride)
   _, _, lw = geo._parts(site)
-  steps = dispense_steps(lc, geo, plunger, tips)
+  if multi_volume is not None:
+    _require_plain_multi(lc)
+    if lc.dispense_lld:
+      raise NotImplementedError(
+        f"{lc.name}: a multi-pipetting wet-contact dispense is not verified"
+      )
+    if not multi_volume > 0:
+      raise ValueError("multi_volume must be positive")
+    portion = fw.steps(multi_volume)
+    stag = fw.steps(m.system_trail_air_gap)
+    for t in tips:
+      if plunger[t - 1] - portion < stag:
+        raise ValueError(f"tip {t} holds less than {multi_volume} uL (plunger {plunger[t - 1]})")
+    steps: List[int] = [portion if c + 1 in tips else 0 for c in range(n)]
+  else:
+    steps = dispense_steps(lc, geo, plunger, tips)
   speed, breakoff = fw.speed(m.dispense_speed), fw.speed(m.breakoff_speed)
   plan = Plan()
   if not lc.dispense_lld:

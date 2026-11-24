@@ -483,7 +483,7 @@ class LihaOperationTests(_TipDiameter, _Backend):
     await self.lh.pick_up_tips(self.rack["A1:H1"])
     await self.lh.aspirate([self.trough.get_item(0)] * 8, vols=[150] * 8, spread="custom")
     self.fake.sent.clear()
-    with self.assertRaisesRegex(NotImplementedError, "partial dispense"):
+    with self.assertRaisesRegex(NotImplementedError, "multi=True"):
       await self.lh.dispense(self.plate["A1:H1"], vols=[100] * 8)
     self.assertEqual(self.c5(), [])
 
@@ -767,6 +767,25 @@ class LihaOperationTests(_TipDiameter, _Backend):
       await self.lh.aspirate(
         wells, vols=[150] * 8, spread="custom", mix=[Mix(100, 3, speed)] * 4 + [None] * 4
       )
+
+  async def test_multi_pipetting_in_portions(self):
+    await self.lh.pick_up_tips(self.rack["A1:H1"])
+    trough = [self.trough.get_item(0)] * 8
+    self.fake.sent.clear()
+    await self.lh.aspirate(trough, vols=[100] * 8, spread="custom", multi=True)
+    # 100 + 30 excess + 30 conditioning, the conditioning back: 30 air + 30 top-up + 300 + 90
+    self.assertIn("MTR" + ",".join(["480"] * 8), self.c5())
+    self.assertIn("PPR" + ",".join(["-90"] * 8), self.c5())
+    self.assertEqual(self.fake.plunger, [450] * 8)
+    for column in ("A1:H1", "A2:H2"):
+      await self.lh.dispense(self.plate[column], vols=[50] * 8)
+    self.assertEqual(self.fake.plunger, [150] * 8)  # the 30 uL excess stays
+    with self.assertRaisesRegex(ValueError, "0.0 uL left"):
+      await self.lh.dispense(self.plate["A3:H3"], vols=[10] * 8)
+    with self.assertRaisesRegex(RuntimeError, "hold liquid"):
+      await self.lh.aspirate(trough, vols=[100] * 8, spread="custom")
+    await self.lh.discard_tips()  # the excess goes into the chute with the DiTis
+    self.assertEqual(self.fake.mounted, 0)
 
   async def test_mix_without_liquid_is_reported_per_channel(self):
     await self.lh.pick_up_tips(self.rack["A1:H1"])

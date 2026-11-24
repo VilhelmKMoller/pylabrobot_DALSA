@@ -400,6 +400,71 @@ class ReplayTests(unittest.TestCase):
     self.assertEqual(outcomes[("Mix", "same")], 3)
     self.assertEqual(outcomes[("Mix", "different")], 3)
 
+  def test_multi_pipetting_worklist(self):
+    """EVO_20251105_141257 (worklist, "Water free dispense" Multi, 4 error-free runs): tips 1, 3, 5,
+    7 aspirate 100 uL and dispense it in 2 portions of 50. Liquid commands as logged; positions and
+    Z heights come from that day's worktable (not in the fixtures) and are not compared."""
+    run = load("EVO_20260409_115221.json")
+    geo, _ = run_setup(run)
+    lib = LiquidClassLibrary.from_database(HERE / "evoware")
+    lc = lib.liha("Water free dispense", 100)
+    src = LihaSite(3, 2, "MP 3Pos", "96 Well TecanExtractionPlate")
+    dst = LihaSite(15, 2, "MP 3Pos", "96 Well TecanExtractionPlate")
+    diti, tips = "DiTi 1000ul LiHa", list(range(1, 9))
+    positional = ("PAA", "SHZ", "STL", "SML")
+
+    def liquid(commands, odd_tips=True):
+      # tips 1, 3, 5, 7 took 100 uL (the even tips 200 uL); compare those tips' values
+      out = []
+      for c in commands:
+        if c[:3] in positional:
+          continue
+        vals = c[3:].split(",")
+        if len(vals) >= 8 and c[:3] not in ("SDM",):
+          per_tip = vals[-8:]
+          c = c[:3] + ",".join(vals[:-8] + [v if i % 2 == 0 else "" for i, v in enumerate(per_tip)])
+        out.append(c)
+      return out
+
+    asp = liha.plan_aspirate(geo, lc, src, 1, 1, tips, 100, diti, [30] * 8, multi=True)
+    detected = [1109, 1110, 1109, 1112, 1110, 1112, 1110, 1115]
+    ours = plan_strings(asp.search) + plan_strings(asp.finish(detected))
+    logged = [
+      "SSM1", "SSM0", "RTS", "PVL0,0,0,0,0,0,0,0", "SEP420,420,420,420,420,420,420,420",
+      "PPR30,30,30,30,30,30,30,30", "SDM7,1", "SSL600,600,600,600,600,600,600,600",
+      "SDL40,40,40,40,40,40,40,40", "SBL20,20,20,20,20,20,20,20",
+      "MDT255,,,,49,80,49,80,49,80,49,80", "SSZ31,31,31,31,31,31,31,31",
+      "SEP600,600,600,600,600,600,600,600", "STZ-48,-78,-48,-79,-48,-79,-48,-79",
+      "MTR480,780,480,780,480,780,480,780", "SSZ200,200,200,200,200,200,200,200",
+      "MAZ1179,1180,1179,1182,1180,1182,1180,1185", "PVL0,0,0,0,0,0,0,0",
+      "SEP3600,3600,3600,3600,3600,3600,3600,3600", "SPP2400,2400,2400,2400,2400,2400,2400,2400",
+      "PPR-90,-90,-90,-90,-90,-90,-90,-90", "RTS",
+    ]  # fmt: skip
+    a, b = liquid(ours), liquid(logged)
+    self.assertEqual(len(a), len(b))
+    for x, y in zip(a, b):
+      self.assertTrue(
+        x == y or (x[:3] in ("MDT", "STZ") and within_one(x, y, skip=4 if x[:3] == "MDT" else 0)),
+        (x, y),
+      )
+    # RPP0 before the first dispense (logged 450): 30 air + 30 top-up to the STAG + 300 + 90 excess
+    self.assertEqual(liha.aspirated_steps(lc, geo, 100, 30, multi=True), 450)
+    for plunger in (450, 300):  # two portions of 50 uL; the 30 uL excess stays (RPP0 150)
+      disp = liha.plan_dispense(geo, lc, dst, 12, 1, tips, diti, [plunger] * 8, multi_volume=50)
+      self.assertEqual(
+        liquid(plan_strings(disp.first)),
+        liquid([
+          "SSM1", "SSM0", "RTS", "SEP3600,3600,3600,3600,3600,3600,3600,3600",
+          "SPP2400,2400,2400,2400,2400,2400,2400,2400", "STZ0,0,0,0,0,0,0,0",
+          "MTR-150,-300,-150,-300,-150,-300,-150,-300", "RTS",
+        ]),
+      )  # fmt: skip
+    with self.assertRaisesRegex(ValueError, "less than 50"):
+      liha.plan_dispense(geo, lc, dst, 12, 1, tips, diti, [150] * 8, multi_volume=50)
+    wet = lib.liha("Water wet contact", 100)
+    with self.assertRaisesRegex(NotImplementedError, "air gaps|wet-contact"):
+      liha.plan_dispense(geo, wet, dst, 12, 1, tips, diti, [450] * 8, multi_volume=50)
+
   def test_planners_for_the_2026_11_24_deck(self):
     """The deck for the visual validation: plain 1000 ul DiTis at grid 46 site 1 (MCA carrier),
     300 ml trough at grid 15 site 3, chute at grid 1."""

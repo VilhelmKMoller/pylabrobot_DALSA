@@ -545,7 +545,8 @@ class EVOBackend(TecanLiquidHandler):
     return list(data)
 
   def _liha_contents(self) -> Dict[int, object]:
-    """Per channel: None (only air), ``(volume, liquid class name)``, or ``UNKNOWN``."""
+    """Per channel: None (only air), ``(volume, liquid class name)``, ``(volume left, class name,
+    aspirated volume)`` after a multi-pipetting aspirate, or ``UNKNOWN``."""
     contents: Optional[Dict[int, object]] = getattr(self, "_liha_contents_state", None)
     if contents is None:
       contents = {}
@@ -870,8 +871,14 @@ class EVOBackend(TecanLiquidHandler):
     use_channels: List[int],
     liquid_class: Optional[str] = None,
     trough_column: int = 1,
+    multi: bool = False,
   ):
     """EVOware "Aspirate" with liquid level detection, single mode, the same volume on all channels.
+
+    ``multi``: multi-pipetting (the class's Multi sub-class), to dispense ``volume`` in portions
+    with several ``dispense`` calls. The tips take the class's excess and conditioning volume too;
+    the conditioning goes back into the source, the excess stays in the tips until they are dropped
+    into the chute (``liha.plan_aspirate(multi=True)``).
 
     Args:
       liquid_class: EVOware LiHa liquid class (default "Water free dispense").
@@ -902,7 +909,7 @@ class EVOBackend(TecanLiquidHandler):
     if mixed is not None and mixed[:4] == (site, column, row, tips):
       after_mix_z = await self._liha_still_at(geo.tips(site, column, row, tips[0]), tips, mixed[4])
     plan = liha.plan_aspirate(
-      geo, lc, site, column, row, tips, volume, diti, plunger, after_mix_z=after_mix_z
+      geo, lc, site, column, row, tips, volume, diti, plunger, after_mix_z, multi=multi
     )
     for channel in use_channels:
       contents[channel] = UNKNOWN
@@ -910,7 +917,8 @@ class EVOBackend(TecanLiquidHandler):
     detected = await self._liha_report("RPZ", 0)
     await self._liha_execute(plan.finish(detected), use_channels)
     for channel in use_channels:
-      contents[channel] = (volume, lc.name)
+      # multi: (still to dispense, class, aspirated volume); the excess is not counted
+      contents[channel] = (volume, lc.name, volume) if multi else (volume, lc.name)
 
   async def dispense(
     self, ops: List[SingleChannelDispense], use_channels: List[int], trough_column: int = 1
@@ -921,7 +929,8 @@ class EVOBackend(TecanLiquidHandler):
     EVOware's checker pattern), with the tip spacing k times the row pitch.
 
     Dispenses everything the channels aspirated (EVOware dispenses all but the system trailing air
-    gap), so ``volume`` must equal the aspirated volume.
+    gap), so ``volume`` must equal the aspirated volume; after a multi-pipetting aspirate
+    (``aspirate(multi=True)``) a portion of what is left, as a free dispense.
     """
     self._liha_mixed = None
     volume = self._liha_check_ops(ops)
@@ -931,19 +940,28 @@ class EVOBackend(TecanLiquidHandler):
     held = {contents.get(c) for c in use_channels}
     if len(held) != 1 or None in held or UNKNOWN in held:
       raise RuntimeError(f"LiHa channels {use_channels} do not hold one known aspiration: {held}")
-    aspirated, name = cast(Tuple[float, str], held.pop())
-    if not math.isclose(volume, aspirated, abs_tol=1e-6):
-      raise NotImplementedError(
-        f"LiHa dispenses the whole aspiration ({aspirated} uL); partial dispense is not supported"
-      )
-    lc = self._liha_lc(name, volume)
+    aspiration = cast(tuple, held.pop())
+    multi = len(aspiration) == 3
+    left, name = float(aspiration[0]), str(aspiration[1])
+    if multi:
+      if volume > left + 1e-6:
+        raise ValueError(f"LiHa channels {use_channels} have {left} uL left to dispense")
+      lc = self._liha_lc(name, float(aspiration[2]))
+    else:
+      if not math.isclose(volume, left, abs_tol=1e-6):
+        raise NotImplementedError(
+          f"LiHa dispenses the whole aspiration ({left} uL); for portions aspirate with multi=True"
+        )
+      lc = self._liha_lc(name, volume)
     if lc.dispense_lld:
       self._liha_require_conductive(use_channels, f"dispense ({lc.name}, wet contact)")
     geo = self._liha_geometry()
     diti = self._liha_diti(ops)
     await self._liha_require_tips(use_channels, mounted=True)
     plunger = await self._liha_report("RPP", 0)
-    plan = liha.plan_dispense(geo, lc, site, column, row, tips, diti, plunger, stride)
+    plan = liha.plan_dispense(
+      geo, lc, site, column, row, tips, diti, plunger, stride, volume if multi else None
+    )
     for channel in use_channels:
       contents[channel] = UNKNOWN
     await self._liha_execute(plan.first, use_channels)
@@ -951,7 +969,8 @@ class EVOBackend(TecanLiquidHandler):
       detected = await self._liha_report("RPZ", 0)
       await self._liha_execute(plan.finish(detected), use_channels)
     for channel in use_channels:
-      contents[channel] = None
+      # multi: the excess stays in the tips (drop them into the chute), even at 0 left
+      contents[channel] = (left - volume, name, aspiration[2]) if multi else None
 
   async def liha_mix(
     self,
