@@ -1,8 +1,6 @@
 # Tecan Infinite M1000 Pro
 
-<!-- PHOTO: add docs/user_guide/tecan/infinite_m1000_pro/img/infinite_m1000_pro.jpg and
-uncomment the next line. -->
-<!-- ![Tecan Infinite M1000 Pro plate reader](img/infinite_m1000_pro.jpg) -->
+![Tecan Infinite M1000 Pro plate reader](img/infinite_m1000_pro.jpg)
 
 The Tecan Infinite M1000 Pro is a monochromator-based multimode plate reader. This
 PyLabRobot backend talks to it directly over USB, without Tecan's i-control software. It
