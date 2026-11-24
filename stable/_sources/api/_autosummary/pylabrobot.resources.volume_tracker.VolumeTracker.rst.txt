@@ -1,4 +1,7 @@
-﻿pylabrobot.resources.volume\_tracker.VolumeTracker
+﻿:orphan:
+
+
+pylabrobot.resources.volume\_tracker.VolumeTracker
 ==================================================
 
 .. currentmodule:: pylabrobot.resources.volume_tracker
@@ -38,5 +41,7 @@
       ~VolumeTracker.serialize
       ~VolumeTracker.set_liquids
       ~VolumeTracker.set_volume
+      ~VolumeTracker.validate_add_liquid
+      ~VolumeTracker.validate_remove_liquid
    
    

@@ -1,4 +1,6 @@
-﻿pylabrobot.resources.hamilton.plate\_carriers
+﻿:orphan:
+
+pylabrobot.resources.hamilton.plate\_carriers
 =============================================
 
 .. currentmodule:: pylabrobot.resources.hamilton
@@ -45,6 +47,7 @@
       PLT_CAR_P3MD
       PLT_CAR_P3MD_A00
       PLT_CAR_P3MD_A01
+      hamilton_plate_carrier_L5_ac
    
    
 
