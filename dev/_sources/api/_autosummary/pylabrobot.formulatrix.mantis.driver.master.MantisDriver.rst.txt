@@ -1,0 +1,46 @@
+﻿:orphan:
+
+
+pylabrobot.formulatrix.mantis.driver.master.MantisDriver
+========================================================
+
+.. currentmodule:: pylabrobot.formulatrix.mantis.driver.master
+
+.. autoclass:: MantisDriver
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: .
+   
+      ~MantisDriver.default_queue_full_timeout
+      ~MantisDriver.default_read_timeout
+   
+   
+
+   
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~MantisDriver.__init__
+      ~MantisDriver.discover
+      ~MantisDriver.request_absolute_encoder_position
+      ~MantisDriver.request_encoder_position
+      ~MantisDriver.request_firmware_version
+      ~MantisDriver.request_following_error_configuration
+      ~MantisDriver.request_motor_configuration
+      ~MantisDriver.request_motor_currents
+      ~MantisDriver.request_motor_limits
+      ~MantisDriver.request_motor_position
+      ~MantisDriver.request_motor_status
+      ~MantisDriver.request_name
+      ~MantisDriver.save_configuration
+      ~MantisDriver.setup
+      ~MantisDriver.stop
+   
+   

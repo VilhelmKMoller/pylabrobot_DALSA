@@ -1,0 +1,54 @@
+﻿:orphan:
+
+
+pylabrobot.formulatrix.mantis.driver.features.arm.Arm
+=====================================================
+
+.. currentmodule:: pylabrobot.formulatrix.mantis.driver.features.arm
+
+.. autoclass:: Arm
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: .
+   
+      ~Arm.attached_chip
+      ~Arm.default_minimum_traverse_height
+      ~Arm.default_xy_acceleration
+      ~Arm.default_xy_speed
+      ~Arm.default_z_acceleration
+      ~Arm.default_z_speed
+      ~Arm.is_initialized
+   
+   
+
+   
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~Arm.__init__
+      ~Arm.initialize
+      ~Arm.is_xy_reachable
+      ~Arm.move_to_joint_state
+      ~Arm.move_to_location
+      ~Arm.move_to_wash
+      ~Arm.move_to_waste
+      ~Arm.move_to_xy_position
+      ~Arm.move_to_z_position
+      ~Arm.park
+      ~Arm.pick_up_chip
+      ~Arm.place_chip
+      ~Arm.recover_from_fault
+      ~Arm.request_absolute_joint_state
+      ~Arm.request_is_parked
+      ~Arm.request_joint_state
+      ~Arm.request_pose
+      ~Arm.return_chip
+   
+   
