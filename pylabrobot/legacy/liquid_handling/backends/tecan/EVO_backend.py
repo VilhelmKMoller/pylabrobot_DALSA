@@ -740,7 +740,11 @@ class EVOBackend(TecanLiquidHandler):
     plan = liha.plan_get_ditis(self._liha_geometry(), site, column, row, tips, slow_x)
     await self._liha_require_tips(use_channels, mounted=False)
     requested = liha.tip_mask(tips)
-    replies = await self._liha_execute(plan, use_channels, requested)
+    try:
+      replies = await self._liha_execute(plan, use_channels, requested)
+    except (TecanLihaError, ChannelizedError) as exc:
+      self._liha_note_untracked_ditis(exc)
+      raise
     mounted = replies[-1]["data"][0]
     missing = [c for c in use_channels if not mounted >> c & 1]
     if missing:
@@ -1054,6 +1058,55 @@ class EVOBackend(TecanLiquidHandler):
     if not data or type(data[0]) is not int:
       raise TecanError(f"unexpected LiHa RTS response {data!r}", EVOBackend.LIHA, 0)
     return data[0]
+
+  def _liha_note_untracked_ditis(self, exc: Exception) -> None:
+    """After a failed pickup: if RTS showed DiTis on, say so. PLR counts none of them as picked
+    up (the instrument did not confirm the pickup, e.g. error 25 although RTS shows the DiTi: it
+    may sit badly; EVOware's retry then fails with 27), so they are not in PLR's tip tracking."""
+    cause = exc if isinstance(exc, TecanLihaError) else exc.__cause__
+    mounted = getattr(cause, "mounted_tips", None)
+    if mounted:
+      channels = [c for c in range(self.num_channels) if mounted >> c & 1]
+      exc.add_note(
+        f"RTS shows DiTis on LiHa channels {channels}, not counted as picked up; drop them into the"
+        " chute with `await backend.liha_discard_mounted_tips()`"
+      )
+
+  async def liha_discard_mounted_tips(self) -> int:
+    """Recovery: drop every DiTi that RTS shows mounted into the chute (EVOware "Drop DiTis"),
+    whatever PLR's tip tracking says. For DiTis left on after a failed or doubtful pickup or an
+    interrupted step. Any liquid in them goes into the chute with them.
+
+    The drop covers the consecutive tips from the first to the last mounted one (every logged
+    Drop DiTis used consecutive tips). Afterwards the channels count as empty in the backend and in
+    the LiquidHandler's tip tracking. Returns the RTS mask before the drop (0: nothing mounted,
+    nothing moved). Raises ChannelizedError (HasTipError) if DiTis are still on afterwards.
+    """
+    self._liha_mixed = None
+    mounted = await self.liha_mounted_tips()
+    if not mounted:
+      return 0
+    on = [c for c in range(self.num_channels) if mounted >> c & 1]
+    channels = list(range(on[0], on[-1] + 1))
+    plan = liha.plan_drop_ditis(self._liha_geometry(), [c + 1 for c in channels])
+    for channel in channels:
+      self._liha_contents()[channel] = UNKNOWN  # until the DiTis are known to be gone
+    replies = await self._liha_execute(plan, channels)
+    after = next(r for (c, _), r in zip(reversed(plan.commands), reversed(replies)) if c == "RTS")
+    still = [c for c in channels if after["data"][0] >> c & 1]
+    if still:
+      raise ChannelizedError(
+        {c: HasTipError(f"LiHa channel {c} still has its DiTi (RTS {after['data'][0]:08b})") for c in still}
+      )
+    head = getattr(self, "_head", None) or {}
+    for channel in channels:
+      self._liha_contents()[channel] = None
+      self._liha_ditis().pop(channel, None)
+      self._liha_conductive().pop(channel, None)
+      tracker = head.get(channel)
+      if tracker is not None and not tracker.is_disabled and tracker.has_tip:
+        tracker.remove_tip(commit=True)
+    return mounted
 
   async def liha_wash_tips(
     self,

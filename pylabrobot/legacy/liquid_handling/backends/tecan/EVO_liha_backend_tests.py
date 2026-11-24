@@ -14,6 +14,7 @@ from pylabrobot.legacy.liquid_handling.backends.tecan import liha
 from pylabrobot.legacy.liquid_handling.backends.tecan.EVO_backend import EVOBackend
 from pylabrobot.legacy.liquid_handling.backends.tecan.errors import (
   TecanLihaNoLiquidError,
+  TecanLihaTipNotFetchedError,
   error_code_to_exception,
 )
 from pylabrobot.legacy.liquid_handling.backends.tecan.evoware_liquid_classes import (
@@ -364,6 +365,37 @@ class LihaOperationTests(_TipDiameter, _Backend):
     # abort: RTS, REE, PAZ to the Z range)
     self.assertEqual(self.c5()[-2:], ["RTS", "PAZ" + ",".join(["2100"] * 8)])
     self.assertIn("raised to Z 2100", " ".join(getattr(ctx.exception.__cause__, "__notes__", [])))
+
+  async def test_error_25_with_every_diti_on_is_not_a_pickup(self):
+    """2026-11-23, AGT start 710: error 25 although RTS shows all 8 DiTis on (EVOware 2024-09-20
+    retried the tips REE flagged: error 27). PLR counts none as picked up and
+    points to liha_discard_mounted_tips."""
+    self.fake.fail["AGT"] = (25, None)  # every requested DiTi on: RTS cannot say which failed
+    with self.assertRaises(TecanLihaTipNotFetchedError) as ctx:
+      await self.lh.pick_up_tips(self.rack["A1:H1"])
+    self.assertEqual(self.fake.mounted, 255)
+    notes = " ".join(getattr(ctx.exception, "__notes__", []))
+    self.assertIn("liha_discard_mounted_tips", notes)
+    self.assertIn("[0, 1, 2, 3, 4, 5, 6, 7]", notes)
+    self.assertFalse(any(self.lh.head[c].has_tip for c in range(8)))
+    # recovery: drop them into the chute, then pick up again
+    self.fake.sent.clear()
+    self.assertEqual(await self.backend.liha_discard_mounted_tips(), 255)
+    self.assertIn("AST255,0", self.c5())
+    self.assertEqual(self.fake.mounted, 0)
+    self.assertEqual(await self.backend.liha_discard_mounted_tips(), 0)  # nothing on: no motion
+    await self.lh.pick_up_tips(self.rack["A2:H2"])
+    self.assertEqual(self.fake.mounted, 255)
+
+  async def test_discard_mounted_tips_spans_the_gaps_and_clears_tracking(self):
+    await self.lh.pick_up_tips(self.rack["A1:H1"])
+    self.fake.mounted = 0b00100100  # channels 2 and 5 only (e.g. after a failed set-back)
+    self.fake.sent.clear()
+    self.assertEqual(await self.backend.liha_discard_mounted_tips(), 0b00100100)
+    self.assertIn("AST60,0", self.c5())  # tips 3-6
+    self.assertEqual(self.fake.mounted, 0)
+    self.assertFalse(any(self.lh.head[c].has_tip for c in (2, 3, 4, 5)))
+    self.assertTrue(self.lh.head[0].has_tip)  # outside the span: PLR's tracking unchanged
 
   def _dispense_op(self, channel):
     return SingleChannelDispense(
