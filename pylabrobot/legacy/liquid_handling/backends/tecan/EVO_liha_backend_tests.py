@@ -743,6 +743,31 @@ class LihaOperationTests(_TipDiameter, _Backend):
     met = next(c for c in self.c5() if c.startswith("MET"))
     self.assertNotIn(",0,0,0,0,0,0,0,0", met)  # Zadd = submerge + tracking
 
+  async def test_aspirate_with_op_mix(self):
+    """PLR's mix before aspirating = the class's Aspirate/Mix (EVO_20260409_115221)."""
+    from pylabrobot.lib.liquid_handling.mix import Mix
+
+    await self.lh.pick_up_tips(self.rack["A1:H1"])
+    wells = [self.trough.get_item(0)] * 8
+    speed = self.lib.liha("Water free dispense", 150).single.aspirate_speed
+    with self.assertRaisesRegex(NotImplementedError, f"flow_rate={speed}"):
+      await self.lh.aspirate(wells, vols=[150] * 8, spread="custom", mix=[Mix(100, 3, 1.0)] * 8)
+    with self.assertRaisesRegex(NotImplementedError, "surface"):
+      await self.lh.aspirate(
+        wells, vols=[150] * 8, spread="custom", mix=[Mix(100, 3, speed, 1.0)] * 8
+      )
+    self.assertFalse(self.c5("MDT"))
+    self.fake.sent.clear()
+    await self.lh.aspirate(wells, vols=[150] * 8, spread="custom", mix=[Mix(100, 3, speed)] * 8)
+    mtr = [c for c in self.c5() if c.startswith("MTR")]
+    self.assertEqual(mtr[:6], ["MTR" + ",".join(["300"] * 8), "MTR" + ",".join(["-300"] * 8)] * 3)
+    self.assertEqual(len(mtr), 7)  # 3 strokes up and down, then the aspirate
+    await self.lh.dispense(wells, vols=[150] * 8, spread="custom")
+    with self.assertRaisesRegex(NotImplementedError, "mix"):
+      await self.lh.aspirate(
+        wells, vols=[150] * 8, spread="custom", mix=[Mix(100, 3, speed)] * 4 + [None] * 4
+      )
+
   async def test_mix_without_liquid_is_reported_per_channel(self):
     await self.lh.pick_up_tips(self.rack["A1:H1"])
     self.fake.fail["MET"] = (9, "@@@II@@@@@@")

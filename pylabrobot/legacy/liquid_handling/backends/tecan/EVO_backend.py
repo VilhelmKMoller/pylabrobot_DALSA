@@ -1,4 +1,5 @@
 import asyncio
+import dataclasses
 import logging
 import math
 from abc import ABCMeta, abstractmethod
@@ -699,14 +700,15 @@ class EVOBackend(TecanLiquidHandler):
     return mca.tip_rack_name(EVOBackend._mca_tip_model([op.tip for op in ops]))
 
   @staticmethod
-  def _liha_check_ops(ops: Sequence) -> float:
-    """The one volume of the ops; refuses settings the liquid class decides on EVOware."""
+  def _liha_check_ops(ops: Sequence, allow_mix: bool = False) -> float:
+    """The one volume of the ops; refuses settings the liquid class decides on EVOware (and
+    ``op.mix`` unless ``allow_mix``)."""
     for op in ops:
       unsupported = {
         "flow_rate": op.flow_rate,
         "liquid_height": op.liquid_height,
         "blow_out_air_volume": op.blow_out_air_volume,
-        "mix": op.mix,
+        "mix": None if allow_mix else op.mix,
       }
       given = [k for k, v in unsupported.items() if v is not None]
       if given:
@@ -720,6 +722,29 @@ class EVOBackend(TecanLiquidHandler):
     if not (math.isfinite(volume) and volume > 0):
       raise ValueError(f"volume must be positive, got {volume}")
     return volume
+
+  @staticmethod
+  def _liha_with_mix(lc, ops: Sequence):
+    """``lc`` with the ops' ``mix`` as its Aspirate/Mix (EVOware's "mix before aspirate": the
+    strokes where the tips detected the surface, at the class's speeds, no tracking)."""
+    mixes = {op.mix for op in ops}
+    if len(mixes) != 1:
+      raise NotImplementedError("LiHa needs the same mix on all channels")
+    mix = mixes.pop()
+    if mix is None:
+      return lc
+    if lc.aspirate_mix is not None:
+      raise ValueError(f"{lc.name} mixes itself (Aspirate/Mix {lc.aspirate_mix}); leave op.mix None")
+    if mix.surface_following_distance or mix.auto_surface_following:
+      raise NotImplementedError("LiHa mixes without following the surface (as EVOware)")
+    if not (isinstance(mix.repetitions, int) and mix.repetitions >= 1 and mix.volume > 0):
+      raise ValueError(f"invalid mix {mix}")
+    if mix.flow_rate != lc.single.aspirate_speed:
+      raise NotImplementedError(
+        f"LiHa mix strokes run at the liquid class's speeds: give flow_rate="
+        f"{lc.single.aspirate_speed} (the aspirate speed of {lc.name!r}, uL/s)"
+      )
+    return dataclasses.replace(lc, aspirate_mix=(float(mix.volume), mix.repetitions))
 
   async def pick_up_tips(self, ops: List[Pickup], use_channels: List[int], slow_x: bool = True):
     """EVOware "Get DiTis": fetch DiTis from a rack, one column, consecutive rows.
@@ -854,17 +879,20 @@ class EVOBackend(TecanLiquidHandler):
     The channels must hold only air (dispense first). The liquid class's air gaps are added.
     From a trough pass its well once per channel with ``spread="custom"``: EVOware positions the
     tips itself, and PLR cannot spread 8 channels over one 80 mm well.
+    ``op.mix`` (the same on every op) mixes first, as a liquid class's Aspirate/Mix: the strokes
+    where the tips detected the surface, without tracking, at the class's speeds (its
+    ``flow_rate`` must be the class's aspirate speed). A dispense's ``op.mix`` is refused.
     Right after ``liha_mix`` in the same wells with the same channels, the tips aspirate where they
     are and take no air gap (the mix's is still in the tips), as EVOware does.
     """
     mixed, self._liha_mixed = self._liha_mixed, None
-    volume = self._liha_check_ops(ops)
+    volume = self._liha_check_ops(ops, allow_mix=True)
     site, column, row, tips = self._liha_target(ops, use_channels, trough_column)
     contents = self._liha_contents()
     full = [c for c in use_channels if contents.get(c) is not None]
     if full:
       raise RuntimeError(f"LiHa channels {full} already hold liquid or unknown contents; dispense first")
-    lc = self._liha_lc(liquid_class, volume)
+    lc = self._liha_with_mix(self._liha_lc(liquid_class, volume), ops)
     self._liha_require_conductive(use_channels, "aspirate")
     geo = self._liha_geometry()
     diti = self._liha_diti(ops)
