@@ -332,6 +332,8 @@ class LihaLiquidClass:
   dispense_retract_offset: float
   dispense_retract_speed: float
   source: str = ""
+  # Aspirate/Mix: (volume uL, cycles) mixed at the detected height before aspirating, or None
+  aspirate_mix: Optional[Tuple[float, int]] = None
 
   def mode(self, multi: bool = False) -> LihaMode:
     return self.multi if multi else self.single
@@ -428,9 +430,16 @@ def subclass_to_liha(name: str, global_, sc, source: str = "") -> LihaLiquidClas
 
   if global_ is None or global_.find("LLD") is None:
     refuse("no Global/LLD settings")
-  for path in ("Aspirate/Mix", "Dispense/Mix"):
-    if _attr(sc, path, "enabled", bool):
-      refuse(f"{path} in the liquid class is not verified for the LiHa")
+  if _attr(sc, "Dispense/Mix", "enabled", bool):
+    refuse("Dispense/Mix in the liquid class is not verified for the LiHa")
+  aspirate_mix = None
+  if _attr(sc, "Aspirate/Mix", "enabled", bool):
+    # logged only at position 0, offset 0 (EVO_20260409_115221: the tips mix where they detected)
+    if int(_attr(sc, "Aspirate/Mix", "position")) != 0 or _attr(sc, "Aspirate/Mix", "offset") != 0:
+      refuse(
+        "Aspirate/Mix at another position or offset than where the tips detect is not verified"
+      )
+    aspirate_mix = (_attr(sc, "Aspirate/Mix", "volume"), int(_attr(sc, "Aspirate/Mix", "cycles")))
   if _attr(sc, "Aspirate/ExitSignal", "detect", bool):
     refuse("exit signal detection is not verified for the LiHa")
   if int(_attr(sc, "Dispense/TipTouching", "direction")) != 0:
@@ -484,4 +493,5 @@ def subclass_to_liha(name: str, global_, sc, source: str = "") -> LihaLiquidClas
     dispense_retract_offset=_attr(sc, "Dispense/Retract", "offset"),
     dispense_retract_speed=_attr(sc, "Dispense/Retract", "speed"),
     source=source,
+    aspirate_mix=aspirate_mix,
   )

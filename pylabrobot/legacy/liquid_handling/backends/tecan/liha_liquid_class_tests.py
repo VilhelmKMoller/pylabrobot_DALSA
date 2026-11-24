@@ -281,7 +281,19 @@ class LibraryTests(unittest.TestCase):
     node = sc.find("Aspirate/Mix")
     assert node is not None
     node.set("enabled", "True")
-    with self.assertRaisesRegex(NotImplementedError, "Mix"):
+    node.set("volume", "100")
+    node.set("cycles", "3")
+    # Aspirate/Mix where the tips detect (position 0, offset 0) is parsed; elsewhere refused
+    lc = subclass_to_liha("x", ET.fromstring(xml[case["global"]]), sc)
+    self.assertEqual(lc.aspirate_mix, (100.0, 3))
+    node.set("offset", "1")
+    with self.assertRaisesRegex(NotImplementedError, "Aspirate/Mix"):
+      subclass_to_liha("x", ET.fromstring(xml[case["global"]]), sc)
+    node.set("offset", "0")
+    node = sc.find("Dispense/Mix")
+    assert node is not None
+    node.set("enabled", "True")
+    with self.assertRaisesRegex(NotImplementedError, "Dispense/Mix"):
       subclass_to_liha("x", ET.fromstring(xml[case["global"]]), sc)
 
 

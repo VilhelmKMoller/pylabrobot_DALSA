@@ -664,6 +664,25 @@ def _aspirate_finish(geo, fw, tips, steps, depth, mode, detected: Sequence[int])
     raise ValueError(f"detected must have {n} values")
   speed = fw.speed(mode.aspirate_speed)
   plan = Plan()
+  if fw.lc.aspirate_mix is not None:
+    # the class's Aspirate/Mix: RTS, then the strokes where the tips detected (uncalibrated, no
+    # tracking), RTS (EVO_20260409_115221 steps 33/37/41: 3 x 100 uL -> MTR+-300). EVOware's MDT
+    # Zadd was 55 there instead of the plain aspirate's 48 (rule unknown from one class/volume;
+    # Zadd only sets how deep the liquid must be for MDT to accept the surface).
+    volume, cycles = fw.lc.aspirate_mix
+    mix_steps = fw.steps(volume)
+    plan.add("RTS")
+    for _ in range(cycles):
+      plan.add("SEP", *_each(n, tips, speed))
+      plan.add("STZ", *_each(n, tips, 0))
+      plan.add("MTR", *_each(n, tips, mix_steps))
+      plan.wait(mode.aspirate_delay_ms)
+      plan.add("SEP", *_each(n, tips, fw.speed(mode.dispense_speed)))
+      plan.add("SPP", *_each(n, tips, fw.speed(mode.breakoff_speed)))
+      plan.add("STZ", *_each(n, tips, 0))
+      plan.add("MTR", *_each(n, tips, -mix_steps))
+      plan.wait(mode.dispense_delay_ms)
+    plan.add("RTS")
   plan.add("SSZ", *_each(n, tips, tracking_speed(depth, steps, speed)))
   plan.add("SEP", *_each(n, tips, speed))
   plan.add("STZ", *_each(n, tips, -depth))

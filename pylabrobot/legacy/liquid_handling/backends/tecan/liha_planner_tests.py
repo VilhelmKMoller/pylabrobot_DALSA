@@ -62,9 +62,17 @@ MIX_TRACKING = (
   " (at 1021 both 181); EVOware's well-shape model is not reproduced (2 %)"
 )
 
+ASPIRATE_MIX_ZADD = (
+  "aspirate with the class's Aspirate/Mix (3 x 100 uL): identical except MDT Zadd, EVOware 55, ours"
+  " 48 as a plain aspirate (rule unknown from one class and volume; 0.7 mm), and STZ +-1 (plate model)"
+)
+
 EXPECTED: Dict[str, Dict[int, str]] = {
   "EVO_20260409_115221.json": {
     25: TROUGH_300,
+    33: ASPIRATE_MIX_ZADD,
+    37: ASPIRATE_MIX_ZADD,
+    41: ASPIRATE_MIX_ZADD,
     44: END_OF_RUN,
     45: END_OF_RUN,
   },
@@ -354,13 +362,10 @@ class ReplayTests(unittest.TestCase):
     300 ml trough into a TecanExtractionPlate, 'Water wet contact' dispenses, drops into the chute."""
     counts = self.replay("EVO_20260409_115221.json")
     self.assertGreaterEqual(counts.get("same", 0), 34)
-    # every Dispense's RPP0 matched our bookkeeping, except after the 3 refused aspirates
-    self.assertEqual(counts.get("plunger"), 13)
-    # '>> Water wet contact <<\t15' mixes inside the aspirate (Aspirate/Mix enabled): not planned yet
-    refused = {i: d for i, _, outcome, d in self.results if outcome == "refused"}
-    self.assertEqual(sorted(refused), [33, 37, 41])
-    for reason in refused.values():
-      self.assertIn("Aspirate/Mix", reason)
+    # every Dispense's RPP0 matched our bookkeeping, including after the aspirates that mix first
+    # ('>> Water wet contact <<\t15', Aspirate/Mix enabled: steps 33/37/41, listed)
+    self.assertEqual(counts.get("plunger"), 16)
+    self.assertFalse(any(o == "refused" for _, _, o, _ in self.results))
 
   def test_wet_contact_run(self):
     """REFINES_fortynding 2026-04-09 11:18: as above plus Mix steps ('>> Water Mix Gentle <<\t11',
