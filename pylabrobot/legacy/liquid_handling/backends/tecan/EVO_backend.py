@@ -700,6 +700,20 @@ class EVOBackend(TecanLiquidHandler):
     """EVOware DiTi labware of the mounted tips (all channels the same)."""
     return mca.tip_rack_name(EVOBackend._mca_tip_model([op.tip for op in ops]))
 
+  def _liha_check_rack(self, ops: Sequence, site: "liha.LihaSite") -> str:
+    """The EVOware DiTi type of the ops' tips, checked against the rack at ``site``.
+
+    A rack holds the DiTis of its own EVOware labware, or of the type it names in ``liha_diti``: a
+    copy of a DiTi definition with other positions (e.g. "Marie DiTi 1000ul LiHa Fluen", a "DiTi
+    1000ul LiHa" box 3.3 mm further right; EVOware sets "DiTi 1000ul LiHa" DiTis back into it,
+    Marie_tranfer_hangingtips2.esc)."""
+    diti = self._liha_diti(ops)
+    rack = self.mca_geometry.labware_resource(ops[0].resource)
+    holds = getattr(rack, "liha_diti", None) or site.labware
+    if diti != holds:
+      raise ValueError(f"tip {diti!r} does not belong to rack {site.labware!r} (holds {holds!r})")
+    return diti
+
   @staticmethod
   def _liha_check_ops(ops: Sequence, allow_mix: bool = False) -> float:
     """The one volume of the ops; refuses settings the liquid class decides on EVOware (and
@@ -759,9 +773,7 @@ class EVOBackend(TecanLiquidHandler):
       if not isinstance(op.resource, TipSpot):
         raise ValueError(f"{op.resource.name} is not a tip spot")
     site, column, row, tips = self._liha_target(ops, use_channels)
-    diti = self._liha_diti(ops)
-    if diti != site.labware:
-      raise ValueError(f"tip {diti!r} does not belong to rack {site.labware!r}")
+    diti = self._liha_check_rack(ops, site)
     self._liha_mixed = None
     plan = liha.plan_get_ditis(self._liha_geometry(), site, column, row, tips, slow_x)
     await self._liha_require_tips(use_channels, mounted=False)
@@ -828,9 +840,7 @@ class EVOBackend(TecanLiquidHandler):
     self._liha_mixed = None
     if all(isinstance(op.resource, TipSpot) for op in ops):
       site, column, row, tips = self._liha_target(ops, use_channels)
-      diti = self._liha_diti(ops)
-      if diti != site.labware:
-        raise ValueError(f"tip {diti!r} does not belong to rack {site.labware!r}")
+      self._liha_check_rack(ops, site)
       contents = self._liha_contents()
       held = [c for c in use_channels if contents.get(c) is not None]
       if held:

@@ -31,6 +31,7 @@ from pylabrobot.resources.errors import HasTipError, NoTipError
 from pylabrobot.resources.tecan.plate_carriers import MP_3Pos
 from pylabrobot.resources.tecan.plates import Trough_300ml_MCA96
 from pylabrobot.resources.tecan.tip_carriers import MCA96_Carrier_4_pos
+from pylabrobot.resources.coordinate import Coordinate
 from pylabrobot.resources.tecan.tip_racks import DiTi_1000ul_LiHa, DiTi_1000ul_LiHa_box
 from pylabrobot.resources.tecan.wash import DiTi_Waste_3_Trough_Wash, Washstation_2Grid_DiTi_Waste
 
@@ -532,6 +533,35 @@ class LihaOperationTests(_TipDiameter, _Backend):
     self.assertEqual(self.c5("PAA"), ["PAA11737,-348,90," + ",".join(z)])
     self.assertEqual(self.c5("AST"), ["AST28,0"])
     self.assertEqual(self.fake.mounted, 0)
+
+  async def test_set_back_into_a_box_holding_the_same_ditis(self):
+    """Marie_tranfer_hangingtips2.esc sets "DiTi 1000ul LiHa" DiTis back into a "Marie DiTi 1000ul
+    LiHa Fluen" box: another labware (3.3 mm further right) that declares the same DiTi type in
+    ``liha_diti``."""
+    marie = DiTi_1000ul_LiHa("marie_box")
+    marie.evoware_name = "Marie DiTi 1000ul LiHa Fluen"  # type: ignore[attr-defined]
+    marie.liha_diti = DITI  # type: ignore[attr-defined]
+    for spot in marie.get_all_items():
+      spot.location = spot.location + Coordinate(3.3, 0, 0)  # type: ignore[operator]
+    self.deck.get_resource("mca_carrier_grid46")[2] = marie  # EVOware site 2
+    marie.empty()
+    await self.lh.pick_up_tips(self.rack["A1:H1"])
+    self.fake.sent.clear()
+    await self.lh.drop_tips(marie["A4:H4"])
+    carrier = "MCA96 Carrier 4 pos"
+    marie_site = liha.LihaSite(46, 1, carrier, "Marie DiTi 1000ul LiHa Fluen")
+    pos = self.geo.diti_fetch(marie_site, 4).position
+    plain = self.geo.diti_fetch(liha.LihaSite(46, 1, carrier, DITI), 4).position
+    self.assertEqual(pos.x, plain.x + 33)
+    self.assertEqual(self.c5("PAA"), [f"PAA{pos.x},{pos.y},90," + ",".join(["1075"] * 8)])
+    self.assertEqual(self.fake.mounted, 0)
+    # a box declaring another DiTi type is refused before anything moves
+    await self.lh.pick_up_tips(marie["A4:H4"])
+    marie.liha_diti = "DiTi 200ul LiHa"  # type: ignore[attr-defined]
+    self.fake.sent.clear()
+    with self.assertRaisesRegex(ValueError, "holds 'DiTi 200ul LiHa'"):
+      await self.lh.drop_tips(marie["A4:H4"])
+    self.assertEqual(self.c5("PAA"), [])
 
   async def test_ditis_with_a_channel_left_out(self):
     """Get DiTis / Set DiTis Back with tips 1-3 and 5 (EVOware: mask 247 and 23 logged)."""
